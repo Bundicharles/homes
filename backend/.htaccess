@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# Allow CORS preflight - pass OPTIONS through to PHP
+# (PHP CORS handler will respond with appropriate headers and 204 status)
+
+# Route all API requests to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
