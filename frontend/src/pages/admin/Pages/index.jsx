@@ -22,7 +22,7 @@ import { getRelativeTime } from '@/utils';
 const AdminPages = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -78,7 +78,7 @@ const AdminPages = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-text">Pages</h1>
           <p className="text-muted mt-1">Manage CMS pages like About, Services, Contact, etc.</p>
         </div>
-        <Link to="/admin/pages/add" className="btn btn-primary">
+        <Link to="/admin/pages/builder/new" className="btn btn-primary">
           <Plus className="w-4 h-4" /> Add Page
         </Link>
       </div>
@@ -158,6 +158,13 @@ const AdminPages = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">
+                        <Link
+                          to={`/admin/pages/builder/${page.id}`}
+                          className="p-2 hover:bg-primary/10 rounded-lg transition-colors text-muted hover:text-primary"
+                          title="Edit Page"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Link>
                         <button
                           onClick={() => { setSelectedPage(page); setShowViewModal(true); }}
                           className="p-2 hover:bg-surface rounded-lg transition-colors"

@@ -11,12 +11,12 @@ class Validation
     public static function isValidPhone(string $phone): bool
     {
         $phone = preg_replace('/[\s\-\(\)]/', '', $phone);
-        return preg_match('/^\+?\d{9,15}$/', $phone);
+        return (bool) preg_match('/^\+?\d{9,15}$/', $phone);
     }
 
     public static function isValidSlug(string $slug): bool
     {
-        return preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug);
+        return (bool) preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug);
     }
 
     public static function sanitizeString(string $input): string
@@ -112,9 +112,10 @@ class Validation
             $errors[] = 'Only image files (JPG, PNG, GIF, WebP, AVIF) are allowed';
         }
 
-        $maxSize = 10 * 1024 * 1024;
+        $maxSizeConfig = Config::get('upload_max_size', 10240);
+        $maxSize = class_exists('Upload') ? Upload::parseSizeToBytes($maxSizeConfig) : ((int)$maxSizeConfig * 1024 * 1024);
         if ($file['size'] > $maxSize) {
-            $errors[] = 'Image must be under 10MB';
+            $errors[] = 'File size exceeds maximum allowed size';
         }
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);

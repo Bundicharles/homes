@@ -1,9 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authAPI } from '@/services/api';
 import { setStoredAuth, getStoredAuth, clearStoredAuth } from '@/utils/authStorage';
 
 const AuthContext = createContext(null);
+
+const readStoredUser = () => {
+  const stored = getStoredAuth();
+  if (!stored) return null;
+  return stored.user || stored;
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -14,81 +20,88 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const [user, setUser] = useState(() => readStoredUser());
 
-  const { refetch: refetchUser } = useQuery({
-    queryKey: ['auth.me'],
-    queryFn: () => authAPI.getCurrentUser(),
-    enabled: false,
-    retry: false,
-    onSuccess: (data) => {
-      if (data.success && data.data) {
-        setUser(data.data);
-      }
-    },
-    onError: () => {
-      setUser(null);
-    },
-  });
-
-  const { refetch: checkAuth } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['auth.check'],
     queryFn: () => authAPI.checkAuth(),
     retry: false,
-    onSuccess: (data) => {
-      if (data.success && data.data?.authenticated) {
-        setUser(data.data.user);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    },
-    onError: () => {
-      setUser(null);
-      setIsLoading(false);
-    },
+    staleTime: 60 * 1000,
   });
 
   useEffect(() => {
-    const storedAuth = getStoredAuth();
-    if (storedAuth) {
-      setUser(storedAuth.user);
-      setIsLoading(false);
-    } else {
-      checkAuth();
+    if (!data?.success) return;
+    if (data.data?.authenticated && data.data.user) {
+      setUser(data.data.user);
+      setStoredAuth(data.data.user);
+      return;
     }
-  }, []);
+    if (data.data && data.data.authenticated === false) {
+      setUser(null);
+      clearStoredAuth();
+    }
+  }, [data]);
 
   const login = async (email, password, remember = false) => {
     const response = await authAPI.login({ email, password, remember });
     if (response.success && response.data) {
-      setUser(response.data.user);
-      setStoredAuth(response.data.user);
+      const nextUser = response.data.user;
+      setUser(nextUser);
+      setStoredAuth(nextUser);
+      queryClient.setQueryData(['auth.check'], {
+        success: true,
+        data: { authenticated: true, user: nextUser },
+      });
     }
+    return response;
   };
 
-  const register = async (data) => {
-    const response = await authAPI.register(data);
+  const register = async (payload) => {
+    const response = await authAPI.register(payload);
     if (!response.success) {
       throw new Error(response.message);
     }
+    return response;
   };
 
   const logout = async () => {
-    await authAPI.logout();
+    try {
+      await authAPI.logout();
+    } catch {
+      // still clear local session
+    }
     setUser(null);
     clearStoredAuth();
+    queryClient.setQueryData(['auth.check'], {
+      success: true,
+      data: { authenticated: false, user: null },
+    });
+    queryClient.removeQueries({ queryKey: ['auth.me'] });
+  };
+
+  const refetchUser = async () => {
+    try {
+      const response = await authAPI.getCurrentUser();
+      if (response.success && response.data) {
+        setUser(response.data);
+        setStoredAuth(response.data);
+      }
+      return response;
+    } catch (error) {
+      await refetch();
+      throw error;
+    }
   };
 
   const value = {
     user,
-    isLoading,
+    isLoading: isLoading && !user && !isError,
     isAuthenticated: !!user,
     login,
     register,
     logout,
-    refetchUser: () => refetchUser(),
+    refetchUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

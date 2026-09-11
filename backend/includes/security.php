@@ -160,17 +160,27 @@ class Security
         }
 
         $allowedMimeMap = [
-            'jpg' => ['image/jpeg'],
-            'jpeg' => ['image/jpeg'],
-            'png' => ['image/png'],
+            'jpg' => ['image/jpeg', 'image/pjpeg'],
+            'jpeg' => ['image/jpeg', 'image/pjpeg'],
+            'png' => ['image/png', 'image/x-png'],
             'gif' => ['image/gif'],
             'webp' => ['image/webp'],
             'avif' => ['image/avif'],
+            'svg' => ['image/svg+xml', 'text/plain', 'text/xml'],
+            'ico' => ['image/x-icon', 'image/vnd.microsoft.icon'],
             'pdf' => ['application/pdf'],
             'doc' => ['application/msword'],
             'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
             'xls' => ['application/vnd.ms-excel'],
             'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            'txt' => ['text/plain'],
+            'mp4' => ['video/mp4', 'application/mp4'],
+            'webm' => ['video/webm', 'audio/webm'],
+            'mov' => ['video/quicktime'],
+            'avi' => ['video/x-msvideo', 'video/avi', 'video/msvideo'],
+            'mkv' => ['video/x-matroska', 'video/mkv'],
+            'mp3' => ['audio/mpeg', 'audio/mp3', 'audio/mpg'],
+            'wav' => ['audio/wav', 'audio/x-wav', 'audio/wave'],
         ];
 
         if (isset($allowedMimeMap[$extension]) && !in_array($mimeType, $allowedMimeMap[$extension])) {

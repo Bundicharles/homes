@@ -16,8 +16,18 @@ ApiRouter::add('GET', '/properties', function($params) {
     }
 
     if (!empty($GLOBALS['_GET_PARAMS']['type'])) {
-        $where[] = "pt.slug = ?";
-        $params[] = $GLOBALS['_GET_PARAMS']['type'];
+        $types = array_filter(array_map('trim', explode(',', (string)$GLOBALS['_GET_PARAMS']['type'])));
+        if (count($types) === 1 && $types[0] === 'plots') {
+            $types = ['plot', 'land'];
+        }
+        if (count($types) === 1) {
+            $where[] = "pt.slug = ?";
+            $params[] = $types[0];
+        } else if (count($types) > 1) {
+            $placeholders = implode(', ', array_fill(0, count($types), '?'));
+            $where[] = "pt.slug IN ({$placeholders})";
+            $params = array_merge($params, $types);
+        }
     }
     if (!empty($GLOBALS['_GET_PARAMS']['county'])) {
         $where[] = "p.county LIKE ?";
@@ -69,12 +79,12 @@ ApiRouter::add('GET', '/properties', function($params) {
 
     $sortBy = $GLOBALS['_GET_PARAMS']['sort'] ?? 'newest';
     $orderMap = [
-        'newest' => 'p.created_at DESC',
-        'oldest' => 'p.created_at ASC',
-        'price_low' => 'p.price ASC',
-        'price_high' => 'p.price DESC',
-        'most_viewed' => 'p.views_count DESC',
-        'featured' => 'p.featured DESC, p.created_at DESC',
+        'newest' => 'p.id DESC, p.created_at DESC',
+        'oldest' => 'p.id ASC, p.created_at ASC',
+        'price_low' => 'p.price ASC, p.id DESC',
+        'price_high' => 'p.price DESC, p.id DESC',
+        'most_viewed' => 'p.views_count DESC, p.id DESC',
+        'featured' => 'p.featured DESC, p.id DESC, p.created_at DESC',
     ];
     $orderBy = $orderMap[$sortBy] ?? $orderMap['newest'];
 
@@ -87,6 +97,7 @@ ApiRouter::add('GET', '/properties', function($params) {
             p.status, p.verification_status, p.featured, p.views_count, p.published_at,
             pt.name as type_name, pt.slug as type_slug,
             (SELECT pi.filename FROM property_images pi WHERE pi.property_id = p.id AND pi.is_primary = TRUE LIMIT 1) as primary_image,
+            (SELECT GROUP_CONCAT(pi.filename ORDER BY pi.is_primary DESC, pi.sort_order ASC) FROM property_images pi WHERE pi.property_id = p.id) as all_images,
             GROUP_CONCAT(f.slug) as feature_slugs
         FROM properties p
         JOIN property_types pt ON p.property_type_id = pt.id
@@ -115,11 +126,12 @@ ApiRouter::add('GET', '/properties/featured', function($params) {
             p.bedrooms, p.bathrooms, p.parking_spaces, p.house_size, p.land_size, 
             p.status, p.verification_status, p.featured, p.views_count, p.published_at,
             pt.name as type_name, pt.slug as type_slug,
-            (SELECT pi.filename FROM property_images pi WHERE pi.property_id = p.id AND pi.is_primary = TRUE LIMIT 1) as primary_image
+            (SELECT pi.filename FROM property_images pi WHERE pi.property_id = p.id AND pi.is_primary = TRUE LIMIT 1) as primary_image,
+            (SELECT GROUP_CONCAT(pi.filename ORDER BY pi.is_primary DESC, pi.sort_order ASC) FROM property_images pi WHERE pi.property_id = p.id) as all_images
         FROM properties p
         JOIN property_types pt ON p.property_type_id = pt.id
         WHERE p.status = 'Available' AND p.featured = TRUE
-        ORDER BY p.views_count DESC, p.created_at DESC
+        ORDER BY p.id DESC, p.created_at DESC
         LIMIT ?"
     );
     $stmt->execute([$limit]);
@@ -128,18 +140,19 @@ ApiRouter::add('GET', '/properties/featured', function($params) {
 }, 'public');
 
 ApiRouter::add('GET', '/properties/latest', function($params) {
-    $limit = (int)($GLOBALS['_GET_PARAMS']['limit'] ?? 6);
+    $limit = (int)($GLOBALS['_GET_PARAMS']['limit'] ?? 8);
     $stmt = Database::getInstance()->prepare(
         "SELECT 
             p.id, p.name, p.slug, p.price, p.currency, p.location, p.county, p.town,
             p.bedrooms, p.bathrooms, p.parking_spaces, p.house_size, p.land_size,
             p.status, p.verification_status, p.featured, p.views_count, p.published_at,
             pt.name as type_name, pt.slug as type_slug,
-            (SELECT pi.filename FROM property_images pi WHERE pi.property_id = p.id AND pi.is_primary = TRUE LIMIT 1) as primary_image
+            (SELECT pi.filename FROM property_images pi WHERE pi.property_id = p.id AND pi.is_primary = TRUE LIMIT 1) as primary_image,
+            (SELECT GROUP_CONCAT(pi.filename ORDER BY pi.is_primary DESC, pi.sort_order ASC) FROM property_images pi WHERE pi.property_id = p.id) as all_images
         FROM properties p
         JOIN property_types pt ON p.property_type_id = pt.id
         WHERE p.status = 'Available'
-        ORDER BY p.published_at DESC, p.created_at DESC
+        ORDER BY p.id DESC, p.created_at DESC
         LIMIT ?"
     );
     $stmt->execute([$limit]);

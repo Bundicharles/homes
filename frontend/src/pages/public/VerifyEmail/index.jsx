@@ -6,7 +6,7 @@ import { useSettings } from '@/context/SettingsContext';
 
 const VerifyEmail = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
   const [params] = useSearchParams();
   const token = params.get('token');
   const [status, setStatus] = useState(token ? 'verifying' : 'idle');

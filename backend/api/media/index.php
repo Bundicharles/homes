@@ -45,7 +45,117 @@ ApiRouter::add('POST', '/admin/upload', function($params) {
         'file_path' => $result['file_path'],
         'url' => '/homes/backend/' . $result['file_path'],
     ], 'File uploaded', 201);
-}, 'permission', 'settings.edit');
+}, 'admin');
+
+ApiRouter::add('GET', '/media', function($params) {
+    $page = max(1, (int)($GLOBALS['_GET_PARAMS']['page'] ?? 1));
+    $limit = max(1, min(100, (int)($GLOBALS['_GET_PARAMS']['limit'] ?? 24)));
+    $offset = ($page - 1) * $limit;
+    $type = strtolower(trim($GLOBALS['_GET_PARAMS']['type'] ?? 'all'));
+    $search = trim($GLOBALS['_GET_PARAMS']['search'] ?? '');
+
+    $where = [];
+    $queryParams = [];
+
+    if ($type === 'image' || $type === 'images') {
+        $where[] = "(mime_type LIKE 'image/%')";
+    } elseif ($type === 'video' || $type === 'videos') {
+        $where[] = "(mime_type LIKE 'video/%')";
+    } elseif ($type === 'audio') {
+        $where[] = "(mime_type LIKE 'audio/%')";
+    }
+
+    if (!empty($search)) {
+        $where[] = "(title LIKE ? OR description LIKE ? OR alt_text LIKE ? OR caption LIKE ? OR original_name LIKE ?)";
+        $searchTerm = "%{$search}%";
+        $queryParams = array_merge($queryParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $stmt = Database::getInstance()->prepare(
+        "SELECT SQL_CALC_FOUND_ROWS * FROM media {$whereClause} ORDER BY uploaded_at DESC LIMIT ? OFFSET ?"
+    );
+    $stmt->execute([...$queryParams, $limit, $offset]);
+    $items = $stmt->fetchAll();
+    $total = (int)Database::getInstance()->query("SELECT FOUND_ROWS()")->fetchColumn();
+
+    foreach ($items as &$item) {
+        $mime = $item['mime_type'] ?? '';
+        if (str_starts_with($mime, 'image/')) {
+            $item['media_type'] = 'image';
+        } elseif (str_starts_with($mime, 'video/')) {
+            $item['media_type'] = 'video';
+        } elseif (str_starts_with($mime, 'audio/')) {
+            $item['media_type'] = 'audio';
+        } else {
+            $item['media_type'] = 'document';
+        }
+    }
+
+    Response::paginated($items, $page, $limit, $total);
+});
+
+ApiRouter::add('GET', '/gallery', function($params) {
+    $page = max(1, (int)($GLOBALS['_GET_PARAMS']['page'] ?? 1));
+    $limit = max(1, min(100, (int)($GLOBALS['_GET_PARAMS']['limit'] ?? 24)));
+    $offset = ($page - 1) * $limit;
+    $type = strtolower(trim($GLOBALS['_GET_PARAMS']['type'] ?? 'all'));
+    $search = trim($GLOBALS['_GET_PARAMS']['search'] ?? '');
+
+    $where = [];
+    $queryParams = [];
+
+    if ($type === 'image' || $type === 'images') {
+        $where[] = "(mime_type LIKE 'image/%')";
+    } elseif ($type === 'video' || $type === 'videos') {
+        $where[] = "(mime_type LIKE 'video/%')";
+    } elseif ($type === 'audio') {
+        $where[] = "(mime_type LIKE 'audio/%')";
+    }
+
+    if (!empty($search)) {
+        $where[] = "(title LIKE ? OR description LIKE ? OR alt_text LIKE ? OR caption LIKE ? OR original_name LIKE ?)";
+        $searchTerm = "%{$search}%";
+        $queryParams = array_merge($queryParams, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+    }
+
+    $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+    $stmt = Database::getInstance()->prepare(
+        "SELECT SQL_CALC_FOUND_ROWS * FROM media {$whereClause} ORDER BY uploaded_at DESC LIMIT ? OFFSET ?"
+    );
+    $stmt->execute([...$queryParams, $limit, $offset]);
+    $items = $stmt->fetchAll();
+    $total = (int)Database::getInstance()->query("SELECT FOUND_ROWS()")->fetchColumn();
+
+    foreach ($items as &$item) {
+        $mime = $item['mime_type'] ?? '';
+        if (str_starts_with($mime, 'image/')) {
+            $item['media_type'] = 'image';
+        } elseif (str_starts_with($mime, 'video/')) {
+            $item['media_type'] = 'video';
+        } elseif (str_starts_with($mime, 'audio/')) {
+            $item['media_type'] = 'audio';
+        } else {
+            $item['media_type'] = 'document';
+        }
+    }
+
+    Response::paginated($items, $page, $limit, $total);
+});
+
+ApiRouter::add('GET', '/media/{id}', function($params) {
+    $stmt = Database::getInstance()->prepare("SELECT * FROM media WHERE id = ?");
+    $stmt->execute([$params['id']]);
+    $item = $stmt->fetch();
+    if (!$item) {
+        Response::notFound('Media not found');
+    }
+    $mime = $item['mime_type'] ?? '';
+    $item['media_type'] = str_starts_with($mime, 'image/') ? 'image' : (str_starts_with($mime, 'video/') ? 'video' : (str_starts_with($mime, 'audio/') ? 'audio' : 'document'));
+    Response::success($item);
+});
 
 ApiRouter::add('GET', '/admin/media', function($params) {
     $page = max(1, (int)($GLOBALS['_GET_PARAMS']['page'] ?? 1));

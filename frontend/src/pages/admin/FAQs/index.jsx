@@ -19,7 +19,7 @@ import { getRelativeTime } from '@/utils';
 const AdminFAQs = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');

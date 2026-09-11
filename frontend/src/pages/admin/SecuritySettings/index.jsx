@@ -6,8 +6,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton } from '@/components/Modal';
 
 const SecuritySettings = () => {
-  const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const { settings: currentSettings, refreshSettings } = useSettings();
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);
@@ -26,6 +26,8 @@ const SecuritySettings = () => {
     mutationFn: (settingsData) => settingsAPI.update(settingsData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.settings'] });
+      queryClient.invalidateQueries({ queryKey: ['settings.public'] });
+      refreshSettings?.();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     },

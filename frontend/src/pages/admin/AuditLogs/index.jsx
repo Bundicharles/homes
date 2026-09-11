@@ -15,7 +15,7 @@ import { formatNumber } from '@/utils';
 
 const AdminAuditLogs = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('');

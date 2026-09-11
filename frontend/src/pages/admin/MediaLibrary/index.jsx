@@ -1,3 +1,4 @@
+import { resolveAssetUrl } from '@/utils';
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
@@ -21,13 +22,13 @@ import {
 import { mediaAPI } from '@/services/api';
 import { Modal } from '@/components/Modal';
 
-const UPLOAD_BASE = import.meta.env.VITE_UPLOAD_BASE || '/homes/backend';
-
 const formatBytes = (bytes) => {
-  if (!bytes) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
+  const num = Number(bytes);
+  if (!num || isNaN(num)) return '—';
+  if (num < 1024) return `${num} B`;
+  if (num < 1048576) return `${(num / 1024).toFixed(1)} KB`;
+  if (num < 1073741824) return `${(num / 1048576).toFixed(1)} MB`;
+  return `${(num / 1073741824).toFixed(2)} GB`;
 };
 
 const getFileIcon = (mime) => {
@@ -55,8 +56,8 @@ const MediaLibrary = () => {
     keepPreviousData: true,
   });
 
-  const mediaItems = data?.data || data?.media || [];
-  const meta = data?.meta || {};
+  const mediaItems = data?.success ? (data.data.data || data.data) : (data?.data || data?.media || []);
+  const pagination = data?.pagination || data?.data?.pagination || {};
 
   const uploadMutation = useMutation({
     mutationFn: ({ file }) => mediaAPI.upload(file, 'media', { title: file.name }),
@@ -91,12 +92,13 @@ const MediaLibrary = () => {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'image/*': [], 'video/*': [], 'application/pdf': [] },
-    maxSize: 20 * 1024 * 1024,
+    accept: { 'image/*': [], 'video/*': [], 'audio/*': [], 'application/pdf': [] },
+    maxSize: 10 * 1024 * 1024 * 1024,
   });
 
   const copyUrl = (item) => {
-    const url = `${window.location.origin}${UPLOAD_BASE}/uploads/${item.file_path || item.path}`;
+    const assetPath = resolveAssetUrl(item.file_path || item.path || item.filename);
+    const url = assetPath.startsWith('http') ? assetPath : `${window.location.origin}${assetPath}`;
     navigator.clipboard.writeText(url);
     setCopiedId(item.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -170,7 +172,7 @@ const MediaLibrary = () => {
               <p className="font-semibold text-text">
                 {isDragActive ? 'Drop files here' : 'Drag & drop files or click to upload'}
               </p>
-              <p className="text-xs text-muted mt-1">Images, Videos, PDFs — Max 20MB per file</p>
+              <p className="text-xs text-muted mt-1">Images, Videos, Audio, PDFs — Max 10GB per file</p>
             </div>
           </div>
         )}
@@ -213,9 +215,10 @@ const MediaLibrary = () => {
               <div className="aspect-square bg-surface-hover">
                 {item.mime_type?.startsWith('image/') ? (
                   <img
-                    src={`${UPLOAD_BASE}/uploads/${item.file_path || item.path}`}
+                    src={resolveAssetUrl(item.file_path || item.path || item.filename)}
                     alt={item.alt_text || item.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -299,9 +302,10 @@ const MediaLibrary = () => {
                     <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-hover flex items-center justify-center">
                       {item.mime_type?.startsWith('image/') ? (
                         <img
-                          src={`${UPLOAD_BASE}/uploads/${item.file_path || item.path}`}
+                          src={resolveAssetUrl(item.file_path || item.path || item.filename)}
                           alt=""
                           className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       ) : (
                         getFileIcon(item.mime_type)
@@ -323,7 +327,7 @@ const MediaLibrary = () => {
                         {copiedId === item.id ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                       </button>
                       <a
-                        href={`${UPLOAD_BASE}/uploads/${item.file_path || item.path}`}
+                        href={resolveAssetUrl(item.file_path || item.path || item.filename)}
                         target="_blank"
                         rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-muted/10 text-muted transition-smooth"
@@ -343,7 +347,7 @@ const MediaLibrary = () => {
       )}
 
       {/* Pagination */}
-      {meta.last_page > 1 && (
+      {pagination.total_pages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -352,10 +356,10 @@ const MediaLibrary = () => {
           >
             Previous
           </button>
-          <span className="text-sm text-muted">Page {page} of {meta.last_page}</span>
+          <span className="text-sm text-muted">Page {page} of {pagination.total_pages}</span>
           <button
-            onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
-            disabled={page === meta.last_page}
+            onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
+            disabled={page === pagination.total_pages}
             className="btn btn-outline btn-sm"
           >
             Next
@@ -368,9 +372,10 @@ const MediaLibrary = () => {
         <div className="space-y-4">
           {editItem?.mime_type?.startsWith('image/') && (
             <img
-              src={`${UPLOAD_BASE}/uploads/${editItem?.file_path || editItem?.path}`}
+              src={resolveAssetUrl(editItem?.file_path || editItem?.path || editItem?.filename)}
               alt=""
               className="w-full max-h-48 object-contain rounded-xl bg-surface-hover"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           )}
           <div>

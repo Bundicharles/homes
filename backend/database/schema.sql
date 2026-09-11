@@ -3,9 +3,12 @@
 -- MySQL 8+ | UTF8MB4
 -- ============================================================================
 
-DROP DATABASE IF EXISTS real_estate_platform;
-CREATE DATABASE real_estate_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci;
-USE real_estate_platform;
+-- NOTE FOR CPANEL / TRUEHOST / SHARED HOSTING:
+-- Create your database first in cPanel -> MySQL Databases, click on your database in phpMyAdmin,
+-- then import this file. (Uncomment the lines below only if running as root on localhost).
+-- DROP DATABASE IF EXISTS real_estate_platform;
+-- CREATE DATABASE IF NOT EXISTS real_estate_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci;
+-- USE real_estate_platform;
 
 -- ============================================================================
 -- ROLES & PERMISSIONS SYSTEM
@@ -176,7 +179,7 @@ CREATE TABLE property_images (
     caption VARCHAR(255),
     is_primary BOOLEAN DEFAULT FALSE,
     sort_order INT DEFAULT 0,
-    file_size INT,
+    file_size BIGINT UNSIGNED,
     mime_type VARCHAR(100),
     width SMALLINT,
     height SMALLINT,
@@ -230,7 +233,7 @@ CREATE TABLE property_documents (
     description TEXT,
     filename VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
-    file_size INT,
+    file_size BIGINT UNSIGNED,
     mime_type VARCHAR(100),
     document_type ENUM('deed', 'title', 'tax_receipt', 'approval', 'survey', 'insurance', 'other') DEFAULT 'other',
     visibility ENUM('private', 'admin_only') DEFAULT 'private',
@@ -596,7 +599,7 @@ CREATE TABLE media (
     filename VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
-    file_size INT NOT NULL,
+    file_size BIGINT UNSIGNED NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
     width SMALLINT,
     height SMALLINT,

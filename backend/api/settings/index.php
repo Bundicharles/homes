@@ -143,8 +143,9 @@ ApiRouter::add('POST', '/admin/social-links', function($params) {
         $data['is_active'] ? 1 : 0
     ]);
 
-    Security::logAudit($user['id'], 'created_social_link', 'social_links', (int)Database::lastInsertId());
-    Response::success(['id' => Database::lastInsertId()], 'Social link created', 201);
+    $socialLinkId = (int)Database::lastInsertId();
+    Security::logAudit($user['id'], 'created_social_link', 'social_links', $socialLinkId);
+    Response::success(['id' => $socialLinkId], 'Social link created', 201);
 }, 'permission', 'settings.edit');
 
 ApiRouter::add('PUT', '/admin/social-links/{id}', function($params) {
@@ -215,8 +216,8 @@ ApiRouter::add('POST', '/upload', function($params) {
     }
 
     $directory = $GLOBALS['_INPUT']['directory'] ?? 'media';
-    $allowedTypes = explode(',', Config::get('upload_allowed_types', 'jpg,jpeg,png,gif,webp,avif,pdf,doc,docx,xls,xlsx'));
-    $maxSize = (int)Config::get('upload_max_size', 10);
+    $allowedTypes = explode(',', Config::get('upload_allowed_types', 'jpg,jpeg,png,gif,webp,avif,svg,pdf,doc,docx,xls,xlsx,txt,mp4,webm,mov,avi,mkv,mp3,wav'));
+    $maxSize = (int)Config::get('upload_max_size', 10240);
 
     $result = Upload::uploadFile($_FILES['file'], $directory, $allowedTypes);
     if (!$result['success']) {

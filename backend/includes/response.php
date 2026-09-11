@@ -66,6 +66,10 @@ class Response
         $totalPages = ceil($total / $limit);
         self::success([
             'data' => $data,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => (int)$totalPages,
             'pagination' => [
                 'page' => $page,
                 'limit' => $limit,

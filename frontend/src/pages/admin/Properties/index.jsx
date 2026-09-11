@@ -1,3 +1,4 @@
+import { getUploadBase } from '@/utils';
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -25,7 +26,7 @@ import VatExcl from '@/components/VatExcl';
 const AdminProperties = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -181,7 +182,7 @@ const AdminProperties = () => {
 
   const getPropertyImage = (property) => {
     return property?.primary_image
-      ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${property.primary_image}`
+      ? `${getUploadBase()}uploads/properties/${property.primary_image}`
       : 'https://placehold.co/64x48?text=No+Image';
   };
 

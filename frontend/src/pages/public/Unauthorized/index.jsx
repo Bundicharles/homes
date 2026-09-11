@@ -4,7 +4,7 @@ import { useSettings } from '@/context/SettingsContext';
 
 const Unauthorized = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4">

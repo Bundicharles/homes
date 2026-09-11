@@ -1,9 +1,15 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsAPI } from '@/services/api';
 import { useAuth } from './AuthContext';
+import { extractList } from '@/utils';
 
 const NotificationContext = createContext(null);
+
+const asNotificationList = (payload) => {
+  const list = extractList(payload);
+  return Array.isArray(list) ? list : [];
+};
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -34,9 +40,17 @@ export const NotificationProvider = ({ children }) => {
   const markAllReadMutation = useMutation({
     mutationFn: () => notificationsAPI.markAllRead(),
     onSuccess: () => {
-      queryClient.setQueryData(['notifications'], (old) =>
-        old ? { ...old, data: old.data.map((n) => ({ ...n, is_read: true })) } : old
-      );
+      queryClient.setQueryData(['notifications'], (old) => {
+        if (!old) return old;
+        const items = asNotificationList(old).map((n) => ({ ...n, is_read: true }));
+        if (Array.isArray(old.data?.data)) {
+          return { ...old, data: { ...old.data, data: items } };
+        }
+        if (Array.isArray(old.data)) {
+          return { ...old, data: items };
+        }
+        return old;
+      });
       queryClient.invalidateQueries({ queryKey: ['notifications.unread-count'] });
     },
   });
@@ -45,6 +59,7 @@ export const NotificationProvider = ({ children }) => {
     mutationFn: (id) => notificationsAPI.markRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications.unread-count'] });
     },
   });
 
@@ -56,8 +71,8 @@ export const NotificationProvider = ({ children }) => {
     },
   });
 
-  const notifications = data?.success ? (data.data.data || data.data) : [];
-  const unreadCount = unreadData?.success ? unreadData.data.count : 0;
+  const notifications = asNotificationList(data);
+  const unreadCount = Number(unreadData?.data?.count) || 0;
 
   const value = {
     notifications,
@@ -75,4 +90,3 @@ export const NotificationProvider = ({ children }) => {
     </NotificationContext.Provider>
   );
 };
-

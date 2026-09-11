@@ -18,7 +18,7 @@ import { getRelativeTime } from '@/utils';
 const AdminRoles = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

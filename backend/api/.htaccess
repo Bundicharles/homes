@@ -1,9 +1,11 @@
 RewriteEngine On
 
-# Allow CORS preflight - pass OPTIONS through to PHP
-# (PHP CORS handler will respond with appropriate headers and 204 status)
+# Disable mod_dir's automatic trailing-slash redirect for directories.
+# Without this, /api/properties gets a 301 redirect to /api/properties/
+# before rewrite rules run, causing the subdirectory index.php to be
+# served directly (bypassing the ApiRouter bootstrap in this file).
+DirectorySlash Off
 
-# Route all requests to the main API router
+# Route ALL requests (including directory paths) to the main API router.
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]

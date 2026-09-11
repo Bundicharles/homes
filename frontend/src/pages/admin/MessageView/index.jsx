@@ -31,7 +31,7 @@ const MessageView = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [replyMessage, setReplyMessage] = useState('');
   const [isInternalNote, setIsInternalNote] = useState(false);

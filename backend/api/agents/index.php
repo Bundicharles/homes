@@ -45,6 +45,27 @@ ApiRouter::add('GET', '/admin/agents/{id}', function($params) {
     Response::success($agent);
 }, 'permission', 'agents.view');
 
+// Inquiries related to an agent (inquiries on their properties or assigned to them)
+ApiRouter::add('GET', '/admin/agents/{id}/inquiries', function($params) {
+    $user = Auth::getCurrentUser();
+    Permissions::requirePermission($user['id'], 'agents.view', true);
+
+    $stmt = Database::getInstance()->prepare(
+        "SELECT i.*, p.name AS property_name, p.slug AS property_slug
+         FROM inquiries i
+         LEFT JOIN properties p ON i.property_id = p.id
+         WHERE i.property_id IN (SELECT property_id FROM property_agents WHERE agent_id = ?)
+            OR i.assigned_to IN (
+                SELECT u.id FROM users u
+                WHERE u.email = (SELECT email FROM agents WHERE id = ?)
+            )
+         ORDER BY i.created_at DESC
+         LIMIT 200"
+    );
+    $stmt->execute([$params['id'], $params['id']]);
+    Response::success($stmt->fetchAll());
+}, 'permission', 'agents.view');
+
 ApiRouter::add('POST', '/admin/agents', function($params) {
     $user = Auth::getCurrentUser();
 

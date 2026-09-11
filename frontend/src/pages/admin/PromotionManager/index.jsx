@@ -19,11 +19,12 @@ import {
 } from 'lucide-react';
 import { adminPromotionsAPI, mediaAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
+import { getUploadBase, resolveAssetUrl } from '@/utils';
 import { LoadingSkeleton, EmptyState, Pagination } from '@/components/Modal';
 
 const AdminPromotionManager = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -131,7 +132,7 @@ const AdminPromotionManager = () => {
       const result = await mediaAPI.upload(file, 'promotions', {});
       if (result.success) {
         const basePath = result.data?.file_path || `uploads/promotions/${result.data?.filename}`;
-        setEditingPromotion((prev) => ({ ...prev, image: '/' + basePath }));
+        setEditingPromotion((prev) => ({ ...prev, image: `${getUploadBase()}${basePath}` }));
       }
     } catch {
       // upload error
@@ -269,16 +270,23 @@ const AdminPromotionManager = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredPromotions.map((promo) => (
-            <div key={promo.id} className="card overflow-hidden">
+            <div key={promo.id} className="card overflow-hidden flex flex-col h-full min-h-[480px] hover:shadow-card transition-all duration-300">
               {promo.image ? (
-                <img
-                  src={promo.image}
-                  alt={promo.title}
-                  className="w-full h-32 object-cover"
-                />
+                <div className="relative h-64 sm:h-72 md:h-80 w-full overflow-hidden bg-surface-hover flex-shrink-0 flex-[3]">
+                  <img
+                    src={resolveAssetUrl(promo.image)}
+                    alt={promo.title}
+                    className="w-full h-full object-cover object-center block transition-transform duration-500 hover:scale-105"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = 'https://placehold.co/800x450?text=No+Image';
+                    }}
+                  />
+                </div>
               ) : (
-                <div className="w-full h-32 bg-surface-hover flex items-center justify-center">
-                  <Megaphone className="w-8 h-8 text-muted" />
+                <div className="relative h-64 sm:h-72 md:h-80 w-full bg-surface-hover flex items-center justify-center flex-shrink-0 flex-[3]">
+                  <Megaphone className="w-12 h-12 text-muted" />
                 </div>
               )}
               <div className="p-4">
@@ -411,15 +419,27 @@ const AdminPromotionManager = () => {
                   Promotion Image
                 </label>
                 {editingPromotion.image ? (
-                  <div className="relative w-full h-32 border-2 border-border border-dashed rounded-lg overflow-hidden bg-surface-hover/50 mb-2">
+                  <div className="relative w-full h-48 sm:h-56 border-2 border-border rounded-xl overflow-hidden bg-surface-hover mb-2 group">
                     <img
-                      src={editingPromotion.image}
+                      src={resolveAssetUrl(editingPromotion.image)}
                       alt="Promotion"
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover object-center block"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = 'https://placehold.co/1200x600?text=No+Image';
+                      }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setEditingPromotion((prev) => ({ ...prev, image: '' }))}
+                      className="absolute top-2.5 right-2.5 p-1.5 bg-black/60 hover:bg-error text-white rounded-lg transition-colors z-10"
+                      title="Remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ) : (
-                  <div className="relative w-full h-32 border-2 border-border border-dashed rounded-lg flex items-center justify-center bg-surface-hover mb-2">
+                  <div className="relative w-full h-40 border-2 border-border border-dashed rounded-xl flex items-center justify-center bg-surface-hover mb-2">
                     <ImageIcon className="w-8 h-8 text-muted" />
                     <span className="text-sm text-muted ml-2">No image uploaded</span>
                   </div>
@@ -432,7 +452,7 @@ const AdminPromotionManager = () => {
                   disabled={uploading}
                 />
                 <p className="text-xs text-muted mt-1">
-                  Recommended size: 1200x600px. Max 10MB.
+                  Recommended size: 1200x600px. Max 10GB.
                 </p>
               </div>
 

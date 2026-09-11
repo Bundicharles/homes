@@ -74,6 +74,20 @@ ApiRouter::add('POST', '/admin/users', function($params) {
     Permissions::requirePermission($user['id'], 'users.create');
 
     $data = $GLOBALS['_INPUT'];
+
+    if (!isset($data['role_id']) && isset($data['role'])) {
+        $roleStmt = Database::getInstance()->prepare("SELECT id FROM roles WHERE slug = ?");
+        $roleStmt->execute([$data['role']]);
+        $roleRow = $roleStmt->fetch();
+        if ($roleRow) {
+            $data['role_id'] = $roleRow['id'];
+        }
+    }
+
+    if (isset($data['is_active'])) {
+        $data['status'] = $data['is_active'] ? 'active' : 'inactive';
+    }
+
     $errors = Validation::validate($data, [
         'name' => ['required', 'min' => 2, 'max' => 255],
         'email' => ['required', 'email'],
@@ -122,6 +136,20 @@ ApiRouter::add('PUT', '/admin/users/{id}', function($params) {
     Permissions::requirePermission($user['id'], 'users.edit');
 
     $data = $GLOBALS['_INPUT'];
+
+    if (!isset($data['role_id']) && isset($data['role'])) {
+        $roleStmt = Database::getInstance()->prepare("SELECT id FROM roles WHERE slug = ?");
+        $roleStmt->execute([$data['role']]);
+        $roleRow = $roleStmt->fetch();
+        if ($roleRow) {
+            $data['role_id'] = $roleRow['id'];
+        }
+    }
+
+    if (!isset($data['status']) && isset($data['is_active'])) {
+        $data['status'] = $data['is_active'] ? 'active' : 'inactive';
+    }
+
     $updates = [];
     $updateParams = [];
 

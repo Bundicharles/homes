@@ -16,8 +16,8 @@ import { LoadingSkeleton, EmptyState, Pagination } from '@/components/Modal';
 import { formatNumber } from '@/utils';
 
 const AdminEarbInfo = () => {
-  const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const { settings: currentSettings, refreshSettings } = useSettings();
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [editingItem, setEditingItem] = useState(null);
@@ -43,6 +43,7 @@ const AdminEarbInfo = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.earb'] });
       queryClient.invalidateQueries({ queryKey: ['settings.public'] });
+      refreshSettings?.();
       setShowModal(false);
       setEditingItem(null);
     },

@@ -1,8 +1,9 @@
-import { Heart, ShoppingCart, Share2, ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Heart, Calendar, Share2, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/context/SettingsContext';
-import { generateWhatsAppUrl } from '@/utils';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { generateWhatsAppUrl, getUploadBase } from '@/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { favoritesAPI, interestedAPI } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import VatExcl from '@/components/VatExcl';
@@ -14,13 +15,52 @@ import {
 } from '@/utils/authStorage';
 
 const PropertyCard = ({ property }) => {
+  const navigate = useNavigate();
   const { settings } = useSettings();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  const primaryImage = property.primary_image
-    ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${property.primary_image}`
-    : 'https://placehold.co/600x400?text=No+Image';
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Extract all property images into full URLs for slideshow
+  const imageList = useMemo(() => {
+    let list = [];
+    if (Array.isArray(property.images) && property.images.length > 0) {
+      list = property.images.map((img) =>
+        typeof img === 'string' ? img : img.filename
+      );
+    } else if (typeof property.all_images === 'string' && property.all_images.trim().length > 0) {
+      list = property.all_images.split(',').map((img) => img.trim()).filter(Boolean);
+    } else if (property.primary_image) {
+      list = [property.primary_image];
+    }
+
+    if (list.length === 0) {
+      return ['https://placehold.co/600x400?text=No+Image'];
+    }
+
+    return list.map((filename) => {
+      if (filename.startsWith('http')) return filename;
+      
+      // If it already contains the path (e.g. backend/uploads/properties/... or uploads/properties/...)
+      const cleaned = filename.replace(/^(\/?backend)?\/?uploads\//i, '');
+      
+      // Ensure it goes to properties/ folder if it's just a filename
+      const finalPath = cleaned.startsWith('properties/') ? cleaned : `properties/${cleaned}`;
+      
+      return `${getUploadBase()}uploads/${finalPath}`;
+    });
+  }, [property]);
+
+  // Auto-slide image timer (cycles automatically every 3.5 seconds)
+  useEffect(() => {
+    if (imageList.length <= 1 || isPaused) return;
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % imageList.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [imageList.length, isPaused]);
 
   const handleFavorite = (e) => {
     e.preventDefault();
@@ -44,20 +84,10 @@ const PropertyCard = ({ property }) => {
     }
   };
 
-  const handleInterested = (e) => {
+  const handleRequestViewing = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    if (isAuthenticated) {
-      interestedAPI.add({ property_id: property.id }).catch(() => {});
-      queryClient.invalidateQueries({ queryKey: ['interested'] });
-    } else {
-      const items = getStoredInterested();
-      if (!items.includes(property.id)) {
-        setStoredInterested([...items, property.id]);
-      }
-      queryClient.invalidateQueries({ queryKey: ['guest-interested'] });
-    }
+    navigate(`/properties/${property.slug || property.id}?view=1`);
   };
 
   const handleWhatsApp = (e) => {
@@ -76,120 +106,236 @@ const PropertyCard = ({ property }) => {
     Published: 'Published',
   };
 
-  const verificationLabels = {
-    Verified: 'Verified',
-    'Documents Submitted': 'Under Review',
-    Pending: 'Pending',
-    'Not Verified': 'Not Verified',
-  };
-
   return (
-    <Link to={`/properties/${property.slug}`} className="group block">
-      <div className="card overflow-hidden transition-shadow duration-300 hover:shadow-card group-hover:translate-y-[-2px]">
-        <div className="relative aspect-[4/3] overflow-hidden bg-surface-hover">
+    <Link to={`/properties/${property.slug}`} className="group block h-full">
+      <div className="card rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl group-hover:-translate-y-2 flex flex-col h-full min-h-[620px] sm:min-h-[680px] md:min-h-[720px] border border-border/80 bg-surface">
+        {/* Full-Bleed Dominant Grand Image Display & Slide Gallery */}
+        <div
+          className="relative h-[380px] sm:h-[440px] md:h-[480px] lg:h-[500px] w-full overflow-hidden bg-surface-hover group/slider flex-shrink-0"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
           <img
-            src={primaryImage}
-            alt={property.name}
-            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+            src={imageList[currentSlide]}
+            alt={property.name || 'Product Image'}
+            className="w-full h-full object-cover object-center block transition-transform duration-700 ease-out group-hover:scale-105"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
+            }}
           />
+
           {property.featured && (
-            <div className="absolute top-3 left-3 bg-accent text-white px-2 py-1 rounded-full text-xs font-medium">
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-accent text-white px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold shadow-lg backdrop-blur-md z-10">
               Featured
             </div>
           )}
           {property.verification_status === 'Verified' && (
-            <div className="absolute top-3 right-3 bg-success text-white px-2 py-1 rounded-full text-xs font-medium flex items-center">
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-success/95 text-white px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold shadow-lg flex items-center backdrop-blur-md z-10">
+              <svg className="w-3.5 h-3.5 mr-1" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
               Verified
             </div>
           )}
+
+          {/* Interactive Slides Navigation Arrows & Indicators */}
+          {imageList.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentSlide((prev) => (prev - 1 + imageList.length) % imageList.length);
+                }}
+                className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-black/60 text-white opacity-80 sm:opacity-0 group-hover/slider:opacity-100 transition-opacity hover:bg-black/80 z-20 backdrop-blur-sm"
+                aria-label="Previous image slide"
+              >
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentSlide((prev) => (prev + 1) % imageList.length);
+                }}
+                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-black/60 text-white opacity-80 sm:opacity-0 group-hover/slider:opacity-100 transition-opacity hover:bg-black/80 z-20 backdrop-blur-sm"
+                aria-label="Next image slide"
+              >
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full">
+                {imageList.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setCurrentSlide(idx);
+                    }}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === currentSlide ? 'bg-white w-4' : 'bg-white/50 w-1.5 hover:bg-white/80'
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="p-4 lg:p-6">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-bold text-lg text-text line-clamp-1 group-hover:text-primary transition-smooth">
-              {property.name}
-            </h3>
-            <span className="text-xs font-medium bg-muted/10 text-muted px-2 py-1 rounded">
-              {property.type_name}
-            </span>
-          </div>
-
-          <p className="text-sm text-muted line-clamp-1 mb-3">{property.location}</p>
-
-          <div className="flex items-center gap-2 mb-4">
-            <p className="text-2xl font-bold text-primary">
-              {property.currency || 'KES'} {Number(property.price || 0).toLocaleString()}
-            </p>
-            <VatExcl />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mb-4 text-center">
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold text-text">{property.bedrooms || 0}</span>
-              <span className="text-xs text-muted">Beds</span>
+        <div className="p-5 sm:p-6 lg:p-7 flex-1 flex flex-col justify-between gap-3.5 sm:gap-4">
+          <div>
+            <div className="flex items-start justify-between gap-2 mb-1.5 sm:mb-2">
+              <h3 className="font-bold text-lg sm:text-xl text-text line-clamp-1 group-hover:text-primary transition-smooth">
+                {property.name}
+              </h3>
+              <span className="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded-md shrink-0">
+                {property.type_name}
+              </span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold text-text">{property.bathrooms || 0}</span>
-              <span className="text-xs text-muted">Baths</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-semibold text-text">{property.parking_spaces || 0}</span>
-              <span className="text-xs text-muted">Park</span>
+
+            <p className="text-xs sm:text-sm text-muted line-clamp-1 mb-2.5 sm:mb-3">{property.location}</p>
+
+            <div className="flex items-center gap-2 mb-3 sm:mb-4">
+              <p className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">
+                {property.currency || 'KES'} {Number(property.price || 0).toLocaleString()}
+              </p>
+              <VatExcl />
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-border">
-            <div className="flex items-center space-x-1">
+          {property.type_slug === 'plot' || property.type_slug === 'land' || property.type_name?.toLowerCase().includes('plot') || property.type_name?.toLowerCase().includes('land') ? (
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2 sm:mb-4 text-center bg-surface/80 p-2 sm:p-2.5 rounded-xl border border-border">
+              <div className="flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-bold text-text truncate">
+                  {Number(property.land_size) > 0
+                    ? Number(property.land_size) >= 4000
+                      ? `${(Number(property.land_size) / 4046.86).toFixed(1)} Ac`
+                      : Number(property.land_size) >= 1800
+                      ? '1/2 Acre'
+                      : Number(property.land_size) >= 900
+                      ? '1/4 Acre'
+                      : Number(property.land_size) >= 400
+                      ? '1/8 Acre'
+                      : `${Number(property.land_size)} sqm`
+                    : '50×100 ft'}
+                </span>
+                <span className="text-[10px] text-muted uppercase font-medium">Size</span>
+              </div>
+              <div className="flex flex-col justify-center border-x border-border/60 px-1">
+                <span className="text-xs sm:text-sm font-bold text-text truncate">
+                  {property.county || property.town || 'Kenya'}
+                </span>
+                <span className="text-[10px] text-muted uppercase font-medium">County</span>
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
+                  Ready Title
+                </span>
+                <span className="text-[10px] text-muted uppercase font-medium">Deed</span>
+              </div>
+            </div>
+          ) : (Number(property.bedrooms) > 0 || Number(property.bathrooms) > 0 || Number(property.parking_spaces) > 0) ? (
+            <div className="grid grid-cols-3 gap-2 mb-2 sm:mb-4 text-center bg-surface/50 p-2 rounded-xl border border-border/60">
+              <div className="flex flex-col">
+                <span className="text-base sm:text-lg font-bold text-text">{property.bedrooms || 0}</span>
+                <span className="text-[11px] sm:text-xs text-muted">Beds</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-base sm:text-lg font-bold text-text">{property.bathrooms || 0}</span>
+                <span className="text-[11px] sm:text-xs text-muted">Baths</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-base sm:text-lg font-bold text-text">{property.parking_spaces || 0}</span>
+                <span className="text-[11px] sm:text-xs text-muted">Park</span>
+              </div>
+            </div>
+          ) : property.description ? (
+            <div className="mb-2 sm:mb-4 bg-surface/40 p-2 sm:p-2.5 rounded-xl border border-border/60">
+              <p className="text-xs text-muted line-clamp-2 leading-relaxed">
+                {property.description.replace(/<[^>]+>/g, '').trim()}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mb-2 sm:mb-4 bg-surface/50 p-2 rounded-xl border border-border/60 text-xs text-muted">
+              <MapPin size={14} className="text-primary flex-shrink-0" />
+              <span className="truncate">{property.location || property.county || 'Available Now'}</span>
+            </div>
+          )}
+
+          {/* Action Buttons Row */}
+          <div className="pt-3 border-t border-border space-y-2.5 sm:space-y-3">
+            {/* Primary action buttons */}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              {/* Favourite */}
               <button
                 onClick={handleFavorite}
-                className="p-1.5 text-muted hover:text-error transition-smooth"
-                aria-label="Toggle favorite"
+                className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-2 rounded-lg text-xs font-semibold border transition-all duration-200 ${
+                  property.is_favorited
+                    ? 'bg-error text-white border-error shadow-sm'
+                    : 'bg-surface border-border text-muted hover:bg-error/10 hover:text-error hover:border-error/40'
+                }`}
+                aria-label="Toggle favourite"
               >
-                <Heart
-                  size={18}
-                  className={property.is_favorited ? 'fill-error text-error' : ''}
-                />
+                <Heart size={14} className={property.is_favorited ? 'fill-white' : ''} />
+                <span>{property.is_favorited ? 'Saved' : 'Save'}</span>
               </button>
+
+              {/* Request Viewing */}
               <button
-                onClick={handleInterested}
-                className="p-1.5 text-muted hover:text-primary transition-smooth"
-                aria-label="Add to interested"
+                onClick={handleRequestViewing}
+                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-1.5 sm:px-2 rounded-lg text-xs font-semibold border border-primary/30 bg-primary/5 text-primary hover:bg-primary hover:text-white transition-all duration-200 shadow-sm"
+                aria-label="Request a viewing"
+                title="Request a Viewing"
               >
-                <ShoppingCart size={18} />
+                <Calendar size={14} className="flex-shrink-0" />
+                <span className="truncate">Viewing</span>
               </button>
+
+              {/* WhatsApp */}
               <button
                 onClick={handleWhatsApp}
-                className="p-1.5 text-muted hover:text-success transition-smooth"
-                aria-label="WhatsApp"
+                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-2 rounded-lg text-xs font-semibold bg-[#25D366] hover:bg-[#1ebe5d] text-white border border-[#25D366] hover:border-[#1ebe5d] transition-all duration-200 shadow-sm"
+                aria-label="Enquire on WhatsApp"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12.04 2.01C6.48 2.01 2.03 6.46 2.03 12c0 2.12.56 4.16 1.6 5.92l-1.02 3.79c-.13.48.34.96.84.84l3.79-1.02c1.74 1.04 3.78 1.56 5.92 1.56 5.56 0 10.01-4.45 10.01-9.99S17.6 2.01 12.04 2.01zm5.28 13.74c-.29.8-1.69 1.46-2.35 1.58-.41.07-.57.12-.6.13-.03.02-.4.05-.77-.27-.37-.32-.53-.46-1.06-.79-.51-.32-1.65-.82-2.1-.84-.44-.01-.77-.15-.91-.32-.13-.15-2.58-3.63-3.05-4.5-.04-.07-.1-.17-.1-.28-.01-.1-.01-.21.05-.31.06-.1.17-.27.29-.15.11.12.67 1.01 1.89 2.74.26.47.52.91.88 1.32.08.09.66-1.12.96-1.59.31-.48.63-.99 1.02-1.55.08-.11.95-.47 1.86-.89.19-.08.5-.3.63-.41.12-.11.1.15.03.34v.01c.02.3-.14.7-.46 1.1-.02.03-.1.15-.2.27.04-.02.1-.07.16-.1.2-.08 2.12.81 3.94 1.76.52.23.88.38 1.11.56.23.18.36.55.2 1.09l-.02.06c-.06.23-.3.79-.86 1.21-.33.23-.49.53-.49.85 0 .32.16 0 2.04-2.69.14-.19.29-.31.45-.26.17.04 1.33.66 1.56 1.28.21.57.15 1.46-.08 2.18l-.02.04c-.03.08-.2.42-.45.79-.19.28-1.1.28-1.35.08-.25-.2-1.3-.59-1.56-.65-.03-.01-.05-.01-.06-.02 0 0-.01-.01-.01 0l-.01.01c-.03.24-.05.59.24 1.33.17.44.36.89.57 1.34.07.16.87 1.82.87 1.82z" />
-        </svg>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+                <span>WhatsApp</span>
               </button>
+            </div>
+
+            {/* Status badge + Share row */}
+            <div className="flex items-center justify-between pt-1">
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                property.status === 'Available' ? 'bg-success/10 text-success' :
+                property.status === 'Sold' ? 'bg-error/10 text-error' :
+                property.status === 'Reserved' ? 'bg-warning/10 text-warning' :
+                property.status === 'Under Offer' ? 'bg-orange-100 text-orange-800' :
+                'bg-muted/10 text-muted'
+              }`}>
+                {statusLabels[property.status] || property.status}
+              </span>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   const url = `${window.location.origin}/properties/${property.slug}`;
                   navigator.clipboard.writeText(url);
                 }}
-                className="p-1.5 text-muted hover:text-secondary transition-smooth"
-                aria-label="Share"
+                className="flex items-center gap-1 text-xs text-muted hover:text-secondary transition-smooth"
+                aria-label="Copy link to share"
               >
-                <Share2 size={18} />
+                <Share2 size={13} />
+                <span>Share</span>
               </button>
             </div>
-            <span className={`text-xs font-medium px-2 py-1 rounded ${
-              property.status === 'Available' ? 'bg-success/10 text-success' :
-              property.status === 'Sold' ? 'bg-error/10 text-error' :
-              property.status === 'Reserved' ? 'bg-warning/10 text-warning' :
-              property.status === 'Under Offer' ? 'bg-orange-100 text-orange-800' :
-              'bg-muted/10 text-muted'
-            }`}>
-              {statusLabels[property.status] || property.status}
-            </span>
           </div>
         </div>
       </div>

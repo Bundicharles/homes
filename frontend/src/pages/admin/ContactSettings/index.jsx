@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Phone,
@@ -18,8 +19,8 @@ import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton } from '@/components/Modal';
 
 const AdminContactSettings = () => {
-  const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const { settings: currentSettings, refreshSettings } = useSettings();
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);
@@ -50,6 +51,7 @@ const AdminContactSettings = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings.public'] });
+      refreshSettings?.();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     },
@@ -62,13 +64,20 @@ const AdminContactSettings = () => {
     },
   });
 
-  const contactSettings = contactData?.success ? (contactData.data || []) : [];
-  const socialLinks = socialData?.success ? (socialData.data || []) : [];
+  const contactSettings = useMemo(() => {
+    if (!contactData?.success) return [];
+    return Array.isArray(contactData.data) ? contactData.data : [];
+  }, [contactData]);
+
+  const socialLinks = useMemo(() => {
+    if (!socialData?.success) return [];
+    return Array.isArray(socialData.data) ? socialData.data : [];
+  }, [socialData]);
 
   const [formData, setFormData] = useState({});
 
   useEffect(() => {
-    if (contactSettings) {
+    if (contactSettings && contactSettings.length > 0) {
       const initial = {};
       contactSettings.forEach((item) => {
         initial[item.key] = item.value;
@@ -111,7 +120,7 @@ const AdminContactSettings = () => {
     { key: 'contact_map_zoom', label: 'Map Zoom Level', icon: MapPin, type: 'number' },
   ];
 
-  if (isLoading && !data) {
+  if (isLoading && !contactData) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-muted/20 rounded w-1/4 animate-pulse" />
@@ -207,10 +216,10 @@ const AdminContactSettings = () => {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text">Social Media Links</h2>
-          <button className="btn btn-ghost btn-sm text-primary">
+          <Link to="/admin/social" className="btn btn-ghost btn-sm text-primary flex items-center">
             <Plus className="w-4 h-4 mr-1" />
-            Add Link
-          </button>
+            Manage Social Links
+          </Link>
         </div>
         {socialLinks.length === 0 ? (
           <div className="text-center py-8 text-muted">
@@ -257,12 +266,13 @@ const AdminContactSettings = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
+                        <Link
+                          to="/admin/social"
                           className="btn btn-ghost btn-sm text-text hover:bg-surface-hover"
                           aria-label={`Edit ${link.platform}`}
                         >
                           <Edit className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button
                           onClick={() => handleDeleteSocial(link.id)}
                           className="btn btn-ghost btn-sm text-error hover:bg-error/10"

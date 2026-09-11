@@ -1,12 +1,11 @@
 <?php
 
-ApiRouter::add('POST', '/inquiries', function($params) {
+ApiRouter::add('POST', '/contact', function($params) {
     $data = $GLOBALS['_INPUT'];
     $errors = Validation::validate($data, [
         'name' => ['required', 'min' => 2, 'max' => 255],
         'email' => ['required', 'email'],
-        'phone' => ['required', 'phone'],
-        'message' => ['required', 'min' => 10],
+        'message' => ['required'],
     ]);
 
     if (!empty($errors)) {
@@ -14,7 +13,97 @@ ApiRouter::add('POST', '/inquiries', function($params) {
     }
 
     $user = Auth::getCurrentUser();
-    $userId = $user ? $user['id'] : null;
+    $userId = $user ? (int)$user['id'] : null;
+
+    $name = Validation::sanitizeString((string)$data['name']);
+    $email = strtolower(trim((string)$data['email']));
+    $phone = !empty($data['phone']) ? Validation::formatPhoneNumber((string)$data['phone']) : '';
+    $subject = !empty($data['subject']) ? Validation::sanitizeString((string)$data['subject']) : 'General Contact Message';
+    $message = Validation::sanitizeString((string)$data['message']);
+    $preferredContact = in_array($data['preferred_contact'] ?? '', ['email', 'phone', 'whatsapp'], true)
+        ? $data['preferred_contact']
+        : 'email';
+
+    Database::beginTransaction();
+    try {
+        // 1. Insert into inquiries
+        $stmt = Database::getInstance()->prepare(
+            "INSERT INTO inquiries (user_id, property_id, name, email, phone, subject, message, status, source) 
+             VALUES (?, NULL, ?, ?, ?, ?, ?, 'Unread', 'contact_form')"
+        );
+        $stmt->execute([
+            $userId,
+            $name,
+            $email,
+            $phone,
+            $subject,
+            $message
+        ]);
+        $inquiryId = (int)Database::lastInsertId();
+
+        // 2. Insert into inquiry_messages
+        $senderType = $user ? ($user['role_slug'] === 'customer' ? 'customer' : 'admin') : 'customer';
+        $stmtMsg = Database::getInstance()->prepare(
+            "INSERT INTO inquiry_messages (inquiry_id, sender_id, sender_type, message) VALUES (?, ?, ?, ?)"
+        );
+        $stmtMsg->execute([$inquiryId, $userId, $senderType, $message]);
+
+        // 3. Keep contact_submissions synced for legacy table consistency
+        try {
+            $stmtContact = Database::getInstance()->prepare(
+                "INSERT INTO contact_submissions (name, email, phone, subject, message, preferred_contact, status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'unread')"
+            );
+            $stmtContact->execute([$name, $email, $phone ?: null, $subject, $message, $preferredContact]);
+        } catch (Exception $eContact) {
+            error_log('Notice: contact_submissions sync: ' . $eContact->getMessage());
+        }
+
+        // 4. Notify all active admin and staff users
+        $admins = Database::getInstance()->query(
+            "SELECT u.id FROM users u WHERE u.role_id IN (1,2,3,6) AND u.status = 'active'"
+        );
+        foreach ($admins as $admin) {
+            Database::getInstance()->prepare(
+                "INSERT INTO notifications (user_id, type, title, message, reference_type, reference_id) 
+                 VALUES (?, 'new_inquiry', 'New Contact Message', ?, 'inquiry', ?)"
+            )->execute([
+                $admin['id'],
+                "New message from {$name}: " . mb_strimwidth($message, 0, 70, '...'),
+                $inquiryId
+            ]);
+        }
+
+        Database::commit();
+        Response::success(['inquiry_id' => $inquiryId], 'Message sent successfully', 201);
+    } catch (Exception $e) {
+        Database::rollback();
+        error_log('Contact submission error: ' . $e->getMessage());
+        Response::serverError('Failed to submit message: ' . $e->getMessage());
+    }
+}, 'public');
+
+ApiRouter::add('POST', '/inquiries', function($params) {
+    $data = $GLOBALS['_INPUT'];
+    $errors = Validation::validate($data, [
+        'name' => ['required', 'min' => 2, 'max' => 255],
+        'email' => ['required', 'email'],
+        'phone' => ['required', 'phone'],
+        'message' => ['required'],
+    ]);
+
+    if (!empty($errors)) {
+        Response::validationError($errors);
+    }
+
+    $user = Auth::getCurrentUser();
+    $userId = $user ? (int)$user['id'] : null;
+
+    $name = Validation::sanitizeString((string)$data['name']);
+    $email = strtolower(trim((string)$data['email']));
+    $phone = Validation::formatPhoneNumber((string)$data['phone']);
+    $subject = !empty($data['subject']) ? Validation::sanitizeString((string)$data['subject']) : 'Property Inquiry';
+    $message = Validation::sanitizeString((string)$data['message']);
 
     Database::beginTransaction();
     try {
@@ -25,47 +114,38 @@ ApiRouter::add('POST', '/inquiries', function($params) {
         $stmt->execute([
             $userId,
             $data['property_id'] ?? null,
-            Validation::sanitizeString($data['name']),
-            strtolower(trim($data['email'])),
-            Validation::formatPhoneNumber($data['phone']),
-            $data['subject'] ?? 'Property Inquiry',
-            Validation::sanitizeString($data['message']),
-            $data['source'] ?? 'website'
+            $name,
+            $email,
+            $phone,
+            $subject,
+            $message,
+            $data['source'] ?? 'property_page'
         ]);
 
-        $inquiryId = Database::lastInsertId();
+        $inquiryId = (int)Database::lastInsertId();
 
         $stmt = Database::getInstance()->prepare(
             "INSERT INTO inquiry_messages (inquiry_id, sender_id, sender_type, message) VALUES (?, ?, ?, ?)"
         );
         $senderType = $user ? ($user['role_slug'] === 'customer' ? 'customer' : 'admin') : 'customer';
-        $stmt->execute([$inquiryId, $userId, $senderType, Validation::sanitizeString($data['message'])]);
+        $stmt->execute([$inquiryId, $userId, $senderType, $message]);
 
         $admins = Database::getInstance()->query(
             "SELECT u.id FROM users u WHERE u.role_id IN (1,2,3,6) AND u.status = 'active'"
         );
         foreach ($admins as $admin) {
             Database::getInstance()->prepare(
-                "INSERT INTO notifications (user_id, type, title, message, reference_type, reference_id) VALUES (?, 'new_inquiry', 'New Inquiry Received', ?, 'inquiry', ?)"
-            )->execute([$admin['id'], 'A new inquiry has been received regarding property inquiry', $inquiryId]);
+                "INSERT INTO notifications (user_id, type, title, message, reference_type, reference_id) 
+                 VALUES (?, 'new_inquiry', 'New Inquiry Received', ?, 'inquiry', ?)"
+            )->execute([$admin['id'], "New inquiry from {$name}: " . mb_strimwidth($message, 0, 70, '...'), $inquiryId]);
         }
-
-        $smtpConfig = [
-            'host' => Config::get('smtp_host'),
-            'port' => Config::get('smtp_port'),
-            'username' => Config::get('smtp_username'),
-            'password' => Config::get('smtp_password'),
-            'encryption' => Config::get('smtp_encryption'),
-            'from_name' => Config::get('smtp_from_name'),
-            'from_email' => Config::get('smtp_from_email'),
-        ];
 
         Database::commit();
         Response::success(['inquiry_id' => $inquiryId], 'Inquiry submitted successfully', 201);
     } catch (Exception $e) {
         Database::rollback();
         error_log('Inquiry creation error: ' . $e->getMessage());
-        Response::serverError('Failed to submit inquiry');
+        Response::serverError('Failed to submit inquiry: ' . $e->getMessage());
     }
 }, 'public');
 
@@ -80,17 +160,35 @@ ApiRouter::add('GET', '/admin/inquiries', function($params) {
     $where = [];
     $queryParams = [];
 
-    if (!empty($GLOBALS['_GET_PARAMS']['status'])) {
-        $where[] = "i.status = ?";
+    if (!empty($GLOBALS['_GET_PARAMS']['status']) && $GLOBALS['_GET_PARAMS']['status'] !== 'all') {
+        $where[] = "LOWER(i.status) = LOWER(?)";
         $queryParams[] = $GLOBALS['_GET_PARAMS']['status'];
     }
     if (!empty($GLOBALS['_GET_PARAMS']['search'])) {
-        $where[] = "(i.name LIKE ? OR i.email LIKE ? OR i.subject LIKE ?)";
+        $where[] = "(i.name LIKE ? OR i.email LIKE ? OR i.phone LIKE ? OR i.subject LIKE ? OR i.message LIKE ?)";
         $search = '%' . $GLOBALS['_GET_PARAMS']['search'] . '%';
-        $queryParams = array_merge($queryParams, [$search, $search, $search]);
+        $queryParams = array_merge($queryParams, [$search, $search, $search, $search, $search]);
     }
     if (isset($GLOBALS['_GET_PARAMS']['unread']) && $GLOBALS['_GET_PARAMS']['unread'] === 'true') {
         $where[] = "i.status = 'Unread'";
+    }
+    if (isset($GLOBALS['_GET_PARAMS']['is_read'])) {
+        if ($GLOBALS['_GET_PARAMS']['is_read'] == '1' || $GLOBALS['_GET_PARAMS']['is_read'] === 'true') {
+            $where[] = "i.status IN ('Read', 'Replied', 'Closed')";
+        } else {
+            $where[] = "i.status = 'Unread'";
+        }
+    }
+    if (!empty($GLOBALS['_GET_PARAMS']['type']) && $GLOBALS['_GET_PARAMS']['type'] !== 'all') {
+        $type = strtolower($GLOBALS['_GET_PARAMS']['type']);
+        if ($type === 'general') {
+            $where[] = "(i.source IN ('website', 'contact_form', 'general', 'other') OR i.source IS NULL)";
+        } elseif ($type === 'property') {
+            $where[] = "i.source IN ('property_page', 'property')";
+        } else {
+            $where[] = "i.source = ?";
+            $queryParams[] = $GLOBALS['_GET_PARAMS']['type'];
+        }
     }
 
     $whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -99,6 +197,13 @@ ApiRouter::add('GET', '/admin/inquiries', function($params) {
         "SELECT SQL_CALC_FOUND_ROWS 
             i.id, i.property_id, i.name, i.email, i.phone, i.subject, i.message, i.status, 
             i.assigned_to, i.source, i.created_at, i.updated_at,
+            (CASE WHEN i.status IN ('Read', 'Replied', 'Closed') THEN 1 ELSE 0 END) as is_read,
+            (CASE 
+                WHEN i.source = 'contact_form' THEN 'general'
+                WHEN i.source = 'website' THEN 'general'
+                WHEN i.source = 'property_page' THEN 'property'
+                ELSE COALESCE(i.source, 'general')
+            END) as type,
             p.name as property_name, p.slug as property_slug,
             u.name as assigned_agent_name,
             (SELECT COUNT(*) FROM inquiry_messages WHERE inquiry_id = i.id) as message_count,
@@ -140,8 +245,9 @@ ApiRouter::add('GET', '/admin/inquiries/{id}', function($params) {
     }
 
     $stmt = Database::getInstance()->prepare(
-        "SELECT im.*, u.name as sender_name, r.name as role_name 
+        "SELECT im.*, COALESCE(u.name, i.name) as sender_name, r.name as role_name 
         FROM inquiry_messages im
+        JOIN inquiries i ON im.inquiry_id = i.id
         LEFT JOIN users u ON im.sender_id = u.id
         LEFT JOIN roles r ON u.role_id = r.id
         WHERE im.inquiry_id = ?
@@ -340,7 +446,7 @@ ApiRouter::add('POST', '/customer/inquiries/{id}/messages', function($params) {
     $user = Auth::requireAuth();
     $data = $GLOBALS['_INPUT'];
 
-    $errors = Validation::validate($data, ['message' => ['required', 'min' => 1, 'max' => 5000]]);
+    $errors = Validation::validate($data, ['message' => ['required']]);
     if (!empty($errors)) {
         Response::validationError($errors);
     }

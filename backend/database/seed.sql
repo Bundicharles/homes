@@ -4,7 +4,7 @@
 -- Run AFTER importing schema.sql
 -- ============================================================================
 
-USE real_estate_platform;
+-- USE real_estate_platform; (Uncomment if needed, otherwise select your database in phpMyAdmin first)
 
 -- ============================================================================
 -- ROLES
@@ -75,6 +75,9 @@ INSERT INTO permissions (name, description, group_name) VALUES
 ('viewings.view', 'View viewing requests', 'viewings'),
 ('viewings.edit', 'Edit viewing requests', 'viewings'),
 ('viewings.assign', 'Assign viewing requests', 'viewings'),
+('viewing_requests.view', 'View viewing requests', 'viewings'),
+('viewing_requests.edit', 'Edit viewing requests', 'viewings'),
+('viewing_requests.assign', 'Assign viewing requests', 'viewings'),
 
 -- Promotions
 ('promotions.view', 'View promotions', 'promotions'),
@@ -252,10 +255,10 @@ INSERT INTO earb_info (key_name, display_name, value, field_type, sort_order, is
 -- ============================================================================
 
 INSERT INTO settings (`key`, `value`, type, group_name, label, description, sort_order, is_public) VALUES
-('business_name', 'Prime Realty Kenya Ltd', 'text', 'general', 'Business Name', 'Official business name', 1, TRUE),
-('website_name', 'Prime Realty Kenya', 'text', 'general', 'Website Name', 'Name displayed on website', 2, TRUE),
+('business_name', 'Hemaprin Homes', 'text', 'general', 'Business Name', 'Official business name', 1, TRUE),
+('website_name', 'Hemaprin Homes', 'text', 'general', 'Website Name', 'Name displayed on website', 2, TRUE),
 ('tagline', 'Your Trusted Partner in Kenyan Real Estate', 'text', 'general', 'Tagline', 'Website tagline', 3, TRUE),
-('description', 'Prime Realty Kenya offers professionally managed residential and commercial properties across Kenya. With over 15 years of experience, we help you find, buy, and sell properties with confidence.', 'textarea', 'general', 'Description', 'Website meta description', 4, TRUE),
+('description', 'Hemaprin Homes offers professionally managed residential and commercial properties, plots, and land across Kenya. Find, buy, and sell verified properties with confidence.', 'textarea', 'general', 'Description', 'Website meta description', 4, TRUE),
 ('default_currency', 'KES', 'select', 'general', 'Default Currency', 'Default currency for property prices', 5, TRUE),
 ('country', 'Kenya', 'text', 'general', 'Country', 'Primary operating country', 6, TRUE),
 ('timezone', 'Africa/Nairobi', 'select', 'general', 'Timezone', 'Default timezone', 7, TRUE),
@@ -283,11 +286,11 @@ INSERT INTO settings (`key`, `value`, type, group_name, label, description, sort
 ('contact_map_lng', '36.8172', 'text', 'contact', 'Map Longitude', 'Google Maps longitude', 10, TRUE),
 ('contact_map_zoom', '12', 'number', 'contact', 'Map Zoom', 'Default map zoom level', 11, TRUE),
 
-('branding_logo', '/uploads/branding/logo-light.png', 'image', 'branding', 'Main Logo', 'Primary website logo', 1, TRUE),
-('branding_mobile_logo', '/uploads/branding/logo-mobile.png', 'image', 'branding', 'Mobile Logo', 'Logo for mobile devices', 2, TRUE),
-('branding_light_logo', '/uploads/branding/logo-light.png', 'image', 'branding', 'Light Logo', 'Logo for dark backgrounds', 3, TRUE),
-('branding_dark_logo', '/uploads/branding/logo-dark.png', 'image', 'branding', 'Dark Logo', 'Logo for light backgrounds', 4, TRUE),
-('branding_favicon', '/uploads/branding/favicon.png', 'image', 'branding', 'Favicon', 'Browser favicon', 5, TRUE),
+('branding_logo', '/backend/uploads/branding/logo-color.svg', 'image', 'branding', 'Main Logo', 'Primary website logo', 1, TRUE),
+('branding_mobile_logo', '/backend/uploads/branding/logo-mobile.svg', 'image', 'branding', 'Mobile Logo', 'Logo for mobile devices', 2, TRUE),
+('branding_light_logo', '/backend/uploads/branding/logo-white.svg', 'image', 'branding', 'Light Logo', 'Logo for dark backgrounds', 3, TRUE),
+('branding_dark_logo', '/backend/uploads/branding/logo-white.svg', 'image', 'branding', 'Dark Logo', 'Logo for light backgrounds', 4, TRUE),
+('branding_favicon', '/backend/uploads/branding/favicon.svg', 'image', 'branding', 'Favicon', 'Browser favicon', 5, TRUE),
 ('branding_primary_color', '#2563eb', 'color', 'branding', 'Primary Color', 'Primary brand color', 6, TRUE),
 ('branding_secondary_color', '#7c3aed', 'color', 'branding', 'Secondary Color', 'Secondary brand color', 7, TRUE),
 ('branding_accent_color', '#ea580c', 'color', 'branding', 'Accent Color', 'Accent/warm color', 8, TRUE),

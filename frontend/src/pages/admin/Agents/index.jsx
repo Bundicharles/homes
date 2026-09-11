@@ -5,32 +5,40 @@ import {
   Edit,
   Trash2,
   Eye,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
   Star,
-  ChevronLeft,
-  ChevronRight,
   Plus,
-  CheckCircle,
-  XCircle,
 } from 'lucide-react';
 import { agentsAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton, EmptyState, Pagination, Modal } from '@/components/Modal';
-import { formatNumber, getRelativeTime } from '@/utils';
+import { extractList, extractTotal } from '@/utils';
+
+const EMPTY_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  bio: '',
+  specialization: '',
+  registration_number: '',
+  license_number: '',
+  license_expiry: '',
+  status: 'active',
+};
 
 const AdminAgents = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings?.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editAgent, setEditAgent] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState(null);
 
@@ -42,7 +50,7 @@ const AdminAgents = () => {
 
   const queryParams = useMemo(() => {
     const params = { page: currentPage, limit, search: searchTerm };
-    if (statusFilter !== 'all') params.is_active = statusFilter === 'active' ? 1 : 0;
+    if (statusFilter !== 'all') params.status = statusFilter;
     return params;
   }, [searchTerm, statusFilter, currentPage]);
 
@@ -50,6 +58,19 @@ const AdminAgents = () => {
     queryKey: ['admin.agents', queryParams],
     queryFn: () => agentsAPI.getAll(queryParams),
     staleTime: 30000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (payload) =>
+      editAgent ? agentsAPI.update(editAgent.id, payload) : agentsAPI.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin.agents'] });
+      setShowFormModal(false);
+      setEditAgent(null);
+      setForm(EMPTY_FORM);
+      setFormErrors({});
+    },
+    onError: (err) => setFormErrors(err.errors || { name: err.message }),
   });
 
   const deleteMutation = useMutation({
@@ -61,20 +82,42 @@ const AdminAgents = () => {
     },
   });
 
-  const agents = data?.success ? data.data.data || data.data : [];
-  const totalPages = data?.success ? Math.ceil((data.data.total || 0) / limit) : 0;
-  const total = data?.success ? (data.data.total || 0) : 0;
+  const agents = extractList(data);
+  const total = extractTotal(data, agents.length);
+  const totalPages = Math.ceil(total / limit);
 
-  const handleDelete = () => {
-    if (agentToDelete) {
-      deleteMutation.mutate(agentToDelete.id);
-    }
+  const isActive = (agent) =>
+    agent?.is_active === true ||
+    agent?.is_active === 1 ||
+    agent?.status === 'active';
+
+  const openCreate = () => {
+    setEditAgent(null);
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setShowFormModal(true);
   };
 
-  const getActiveBadge = (isActive) => {
-    return isActive
-      ? 'bg-success/10 text-success'
-      : 'bg-muted/20 text-muted';
+  const openEdit = (agent) => {
+    setEditAgent(agent);
+    setForm({
+      name: agent.name || '',
+      email: agent.email || '',
+      phone: agent.phone || '',
+      bio: agent.bio || '',
+      specialization: agent.specialization || '',
+      registration_number: agent.registration_number || '',
+      license_number: agent.license_number || '',
+      license_expiry: agent.license_expiry ? String(agent.license_expiry).slice(0, 10) : '',
+      status: agent.status || (isActive(agent) ? 'active' : 'inactive'),
+    });
+    setFormErrors({});
+    setShowFormModal(true);
+  };
+
+  const handleSave = (event) => {
+    event.preventDefault();
+    saveMutation.mutate(form);
   };
 
   return (
@@ -84,9 +127,9 @@ const AdminAgents = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-text">Agents</h1>
           <p className="text-muted mt-1">Manage real estate agents and their profiles</p>
         </div>
-        <Link to="/admin/agents/add" className="btn btn-primary">
+        <button type="button" onClick={openCreate} className="btn btn-primary">
           <Plus className="w-4 h-4" /> Add Agent
-        </Link>
+        </button>
       </div>
 
       <div className="card p-4">
@@ -121,7 +164,15 @@ const AdminAgents = () => {
           <button onClick={() => refetch()} className="btn btn-primary">Retry</button>
         </div>
       ) : agents.length === 0 ? (
-        <EmptyState message="No agents found" type="search" />
+        <EmptyState
+          message="No agents found"
+          type="search"
+          action={
+            <button type="button" onClick={openCreate} className="btn btn-primary">
+              Add Agent
+            </button>
+          }
+        />
       ) : (
         <>
           <div className="card overflow-hidden">
@@ -131,9 +182,9 @@ const AdminAgents = () => {
                   <tr className="border-b border-border">
                     <th className="text-left p-4 font-semibold text-text">Agent</th>
                     <th className="text-left p-4 font-semibold text-text hidden md:table-cell">Specialization</th>
-                    <th className="text-left p-4 font-semibold text-text hidden lg:table-cell">Experience</th>
+                    <th className="text-left p-4 font-semibold text-text hidden lg:table-cell">License</th>
                     <th className="text-left p-4 font-semibold text-text">Status</th>
-                    <th className="text-left p-4 font-semibold text-text hidden sm:table-cell">Featured</th>
+                    <th className="text-left p-4 font-semibold text-text hidden sm:table-cell">Rating</th>
                     <th className="text-right p-4 font-semibold text-text">Actions</th>
                   </tr>
                 </thead>
@@ -155,16 +206,19 @@ const AdminAgents = () => {
                         {agent.specialization || 'General'}
                       </td>
                       <td className="p-4 hidden lg:table-cell text-sm text-muted">
-                        {agent.experience_years ? `${agent.experience_years} years` : 'N/A'}
+                        {agent.license_number || 'N/A'}
                       </td>
                       <td className="p-4">
-                        <span className={['px-2 py-1 rounded-full text-xs font-medium', getActiveBadge(agent.is_active)].join(' ')}>
-                          {agent.is_active ? 'Active' : 'Inactive'}
+                        <span className={['px-2 py-1 rounded-full text-xs font-medium', isActive(agent) ? 'bg-success/10 text-success' : 'bg-muted/20 text-muted'].join(' ')}>
+                          {isActive(agent) ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
-                        {agent.is_featured ? (
-                          <Star className="w-4 h-4 text-warning fill-warning" />
+                        {Number(agent.rating) > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-sm text-text">
+                            <Star className="w-4 h-4 text-warning fill-warning" />
+                            {agent.rating}
+                          </span>
                         ) : (
                           <span className="text-muted">-</span>
                         )}
@@ -177,6 +231,13 @@ const AdminAgents = () => {
                             title="View Details"
                           >
                             <Eye className="w-4 h-4 text-muted" />
+                          </button>
+                          <button
+                            onClick={() => openEdit(agent)}
+                            className="p-2 hover:bg-surface rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4 text-muted" />
                           </button>
                           <button
                             onClick={() => { setAgentToDelete(agent); setShowDeleteModal(true); }}
@@ -209,29 +270,29 @@ const AdminAgents = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-text">{selectedAgent.name}</h3>
-                <p className="text-muted">{selectedAgent.title || 'Real Estate Agent'}</p>
-                <span className={['inline-block mt-1 px-2 py-1 rounded-full text-xs font-medium', getActiveBadge(selectedAgent.is_active)].join(' ')}>
-                  {selectedAgent.is_active ? 'Active' : 'Inactive'}
+                <p className="text-muted">{selectedAgent.specialization || 'Real Estate Agent'}</p>
+                <span className={['inline-block mt-1 px-2 py-1 rounded-full text-xs font-medium', isActive(selectedAgent) ? 'bg-success/10 text-success' : 'bg-muted/20 text-muted'].join(' ')}>
+                  {isActive(selectedAgent) ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="card p-4">
                 <p className="text-sm text-muted">Email</p>
-                <p className="font-medium">{selectedAgent.email}</p>
+                <p className="font-medium">{selectedAgent.email || '—'}</p>
               </div>
               <div className="card p-4">
                 <p className="text-sm text-muted">Phone</p>
-                <p className="font-medium">{selectedAgent.phone}</p>
+                <p className="font-medium">{selectedAgent.phone || '—'}</p>
               </div>
               <div className="card p-4">
-                <p className="text-sm text-muted">Specialization</p>
-                <p className="font-medium">{selectedAgent.specialization || 'General'}</p>
+                <p className="text-sm text-muted">License</p>
+                <p className="font-medium">{selectedAgent.license_number || 'N/A'}</p>
               </div>
               <div className="card p-4">
-                <p className="text-sm text-muted">Experience</p>
-                <p className="font-medium">{selectedAgent.experience_years ? `${selectedAgent.experience_years} years` : 'N/A'}</p>
+                <p className="text-sm text-muted">Registration</p>
+                <p className="font-medium">{selectedAgent.registration_number || 'N/A'}</p>
               </div>
             </div>
 
@@ -245,13 +306,115 @@ const AdminAgents = () => {
         </Modal>
       )}
 
+      {showFormModal && (
+        <Modal
+          isOpen={showFormModal}
+          onClose={() => setShowFormModal(false)}
+          title={editAgent ? 'Edit Agent' : 'Add Agent'}
+          maxWidth="lg"
+        >
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  className="input w-full"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+                {formErrors.name && <p className="text-error text-xs mt-1">{formErrors.name}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  className="input w-full"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                />
+                {formErrors.email && <p className="text-error text-xs mt-1">{formErrors.email}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input
+                  className="input w-full"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Specialization</label>
+                <input
+                  className="input w-full"
+                  value={form.specialization}
+                  onChange={(e) => setForm({ ...form, specialization: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">License number</label>
+                <input
+                  className="input w-full"
+                  value={form.license_number}
+                  onChange={(e) => setForm({ ...form, license_number: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">License expiry</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={form.license_expiry}
+                  onChange={(e) => setForm({ ...form, license_expiry: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Registration number</label>
+                <input
+                  className="input w-full"
+                  value={form.registration_number}
+                  onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  className="input w-full"
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Bio</label>
+              <textarea
+                className="input w-full min-h-[100px]"
+                value={form.bio}
+                onChange={(e) => setForm({ ...form, bio: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setShowFormModal(false)} className="btn btn-ghost">Cancel</button>
+              <button type="submit" disabled={saveMutation.isPending} className="btn btn-primary">
+                {saveMutation.isPending ? 'Saving...' : editAgent ? 'Update Agent' : 'Create Agent'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {showDeleteModal && agentToDelete && (
         <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Agent" maxWidth="sm">
           <div className="space-y-4">
             <p className="text-muted">Are you sure you want to delete <strong>{agentToDelete.name}</strong>? This action cannot be undone.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="btn btn-ghost">Cancel</button>
-              <button onClick={handleDelete} disabled={deleteMutation.isPending} className="btn btn-error">
+              <button onClick={() => deleteMutation.mutate(agentToDelete.id)} disabled={deleteMutation.isPending} className="btn btn-error">
                 {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>

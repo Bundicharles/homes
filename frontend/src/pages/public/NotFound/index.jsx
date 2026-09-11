@@ -5,7 +5,7 @@ import { Home, Search } from 'lucide-react';
 
 const NotFound = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   useEffect(() => {
     document.title = `404 - Page Not Found | ${businessName}`;

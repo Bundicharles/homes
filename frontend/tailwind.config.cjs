@@ -5,6 +5,23 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
+    // Full-width (edge-to-edge) layout on every breakpoint while keeping a
+    // small consistent gutter on small screens.
+    container: {
+      center: true,
+      padding: {
+        DEFAULT: '1rem',
+        sm: '1.25rem',
+        lg: '2rem',
+      },
+      screens: {
+        sm: '100%',
+        md: '100%',
+        lg: '100%',
+        xl: '100%',
+        '2xl': '100%',
+      },
+    },
     extend: {
       colors: {
         primary: '#2563eb',

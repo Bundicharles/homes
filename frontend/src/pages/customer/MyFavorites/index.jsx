@@ -7,14 +7,14 @@ import { useAuth } from '@/context/AuthContext';
 import { Heart, Trash2, ExternalLink, AlertCircle } from 'lucide-react';
 import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 import VatExcl from '@/components/VatExcl';
-import { formatPrice, getRelativeTime } from '@/utils';
+import { formatPrice, getRelativeTime, getUploadBase } from '@/utils';
 
 const MyFavorites = () => {
   const { settings } = useSettings();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   useEffect(() => {
     document.title = `My Favorites | ${businessName}`;
@@ -56,7 +56,7 @@ const MyFavorites = () => {
 
   const getPropertyImage = (property) => {
     return property?.primary_image
-      ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${property.primary_image}`
+      ? `${getUploadBase()}uploads/properties/${property.primary_image}`
       : 'https://placehold.co/120x90?text=No+Image';
   };
 

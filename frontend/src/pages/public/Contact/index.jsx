@@ -21,7 +21,7 @@ const Contact = () => {
   const { isAuthenticated, user } = useAuth();
   const [submitStatus, setSubmitStatus] = useState(null);
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
   const description = settings.description || 'Your trusted partner in Kenyan real estate.';
 
   const {
@@ -230,14 +230,10 @@ const Contact = () => {
                   </label>
                   <textarea
                     rows={5}
-                    className={`input resize-none ${errors.message ? 'border-error' : ''}`}
+                    className={`input ${errors.message ? 'border-error' : ''}`}
                     placeholder="Write your message here..."
                     {...register('message', {
                       required: 'Message is required',
-                      minLength: {
-                        value: 10,
-                        message: 'Message must be at least 10 characters',
-                      },
                     })}
                   />
                   {errors.message && (

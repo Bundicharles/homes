@@ -21,14 +21,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 import VatExcl from '@/components/VatExcl';
-import { formatPrice, getRelativeTime } from '@/utils';
+import { formatPrice, getRelativeTime, getUploadBase } from '@/utils';
 
 const CustomerDashboard = () => {
   const { settings } = useSettings();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   useEffect(() => {
     document.title = `Dashboard | ${businessName}`;
@@ -57,14 +57,14 @@ const CustomerDashboard = () => {
 
   const { data: inquiriesData, isLoading: inquiriesLoading } = useQuery({
     queryKey: ['customer-inquiries'],
-    queryFn: () => inquiriesAPI.submitView(),
+    queryFn: () => inquiriesAPI.getMine(),
     enabled: !!user,
     retry: false,
   });
 
   const { data: viewingsData, isLoading: viewingsLoading } = useQuery({
     queryKey: ['customer-viewings'],
-    queryFn: () => viewingAPI.submit(),
+    queryFn: () => viewingAPI.getMine(),
     enabled: !!user,
     retry: false,
   });
@@ -124,7 +124,7 @@ const CustomerDashboard = () => {
 
   const getPropertyImage = (property) => {
     return property?.primary_image
-      ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${property.primary_image}`
+      ? `${getUploadBase()}uploads/properties/${property.primary_image}`
       : 'https://placehold.co/80x60?text=No+Image';
   };
 

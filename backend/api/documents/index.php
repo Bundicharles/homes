@@ -42,6 +42,43 @@ ApiRouter::add('GET', '/admin/documents', function($params) {
     Response::paginated($documents, $page, $limit, $total);
 }, 'permission', 'documents.view');
 
+// Serve a document file through the authenticated API (no direct disk URL exposed)
+ApiRouter::add('GET', '/admin/documents/serve/{id}', function($params) {
+    $user = Auth::getCurrentUser();
+    Permissions::requirePermission($user['id'], 'documents.view', true);
+
+    $stmt = Database::getInstance()->prepare("SELECT * FROM property_documents WHERE id = ?");
+    $stmt->execute([$params['id']]);
+    $document = $stmt->fetch();
+
+    if (!$document) {
+        Response::notFound('Document not found');
+    }
+
+    // file_path is stored like "/uploads/documents/private/file.pdf" — map it
+    // to the on-disk path under backend/uploads/
+    $relative = ltrim((string)$document['file_path'], '/');
+    if (strpos($relative, 'uploads/') === 0) {
+        $relative = substr($relative, strlen('uploads/'));
+    }
+
+    $baseDir = realpath(__DIR__ . '/../../uploads');
+    $filePath = $baseDir ? realpath($baseDir . '/' . $relative) : false;
+
+    if (!$filePath || strpos($filePath, $baseDir) !== 0 || !is_file($filePath)) {
+        Response::notFound('File not found on server');
+    }
+
+    // Override the default JSON content type — we are streaming a file
+    header('Content-Type: ' . ($document['mime_type'] ?: 'application/octet-stream'));
+    header('Content-Length: ' . filesize($filePath));
+    header('Content-Disposition: inline; filename="' . basename($filePath) . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, max-age=0, no-cache');
+    readfile($filePath);
+    exit;
+}, 'permission', 'documents.view');
+
 ApiRouter::add('GET', '/admin/documents/{id}', function($params) {
     $user = Auth::getCurrentUser();
     Permissions::requirePermission($user['id'], 'documents.view', true);
@@ -95,6 +132,22 @@ ApiRouter::add('POST', '/admin/documents', function($params) {
     ]);
 
     Security::logAudit($user['id'], 'uploaded_document', 'property_documents', (int)Database::lastInsertId());
+
+    if ($propertyId) {
+        $stmtProp = Database::getInstance()->prepare("SELECT verification_status FROM properties WHERE id = ?");
+        $stmtProp->execute([$propertyId]);
+        $currentVer = $stmtProp->fetchColumn();
+        if ($currentVer && in_array($currentVer, ['Pending', 'Not Verified', 'Verification Required'])) {
+            Database::getInstance()->prepare(
+                "UPDATE properties SET verification_status = 'Documents Submitted', updated_by = ? WHERE id = ?"
+            )->execute([$user['id'], $propertyId]);
+
+            Database::getInstance()->prepare(
+                "INSERT INTO property_verifications (property_id, notes, submitted_by, status) VALUES (?, ?, ?, 'Documents Submitted')"
+            )->execute([$propertyId, 'Document attached: ' . ($data['title'] ?? $result['filename']), $user['id']]);
+        }
+    }
+
     Response::success(['id' => Database::lastInsertId()], 'Document uploaded successfully', 201);
 }, 'permission', 'documents.upload');
 

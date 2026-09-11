@@ -5,16 +5,37 @@ class Permissions
 {
     private static array $permissionsCache = [];
 
+    private static array $aliases = [
+        'viewing_requests.view' => 'viewings.view',
+        'viewing_requests.edit' => 'viewings.edit',
+        'viewing_requests.assign' => 'viewings.assign',
+        'viewings.view' => 'viewing_requests.view',
+        'viewings.edit' => 'viewing_requests.edit',
+        'viewings.assign' => 'viewing_requests.assign',
+    ];
+
     public static function hasPermission(int $userId, string $permission): bool
     {
         $userPermissions = self::getUserPermissions($userId);
-        return in_array($permission, $userPermissions, true);
+        if (in_array($permission, $userPermissions, true)) {
+            return true;
+        }
+        if (isset(self::$aliases[$permission]) && in_array(self::$aliases[$permission], $userPermissions, true)) {
+            return true;
+        }
+        return false;
     }
 
     public static function hasPermissionByRole(int $roleId, string $permission): bool
     {
         $rolePermissions = self::getRolePermissions($roleId);
-        return in_array($permission, $rolePermissions, true);
+        if (in_array($permission, $rolePermissions, true)) {
+            return true;
+        }
+        if (isset(self::$aliases[$permission]) && in_array(self::$aliases[$permission], $rolePermissions, true)) {
+            return true;
+        }
+        return false;
     }
 
     public static function getUserPermissions(int $userId): array
@@ -58,7 +79,7 @@ class Permissions
         return $permissions;
     }
 
-    public static function requirePermission(?int $userId, string $permission, bool $orAdmin = false): void
+    public static function requirePermission(?int $userId, string $permission, bool $orAdmin = true): void
     {
         if ($userId === null) {
             Response::unauthorized('Authentication required');

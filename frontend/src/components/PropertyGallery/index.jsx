@@ -1,3 +1,4 @@
+import { getUploadBase } from '@/utils';
 import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -5,14 +6,22 @@ const PropertyGallery = ({ images, propertyName }) => {
   const [currentImage, setCurrentImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const baseUrl = import.meta.env.VITE_UPLOAD_BASE || '/';
+  const baseUrl = getUploadBase();
 
   const allImages = images && images.length > 0
-    ? images.map((img) => ({
-        src: `${baseUrl}uploads/properties/${img.filename}`,
-        alt: img.alt_text || propertyName,
-        caption: img.caption,
-      }))
+    ? images.map((img) => {
+        let filename = img.filename;
+        if (!filename.startsWith('http')) {
+          const cleaned = filename.replace(/^(\/?backend)?\/?uploads\//i, '');
+          const finalPath = cleaned.startsWith('properties/') ? cleaned : `properties/${cleaned}`;
+          filename = `${baseUrl}uploads/${finalPath}`;
+        }
+        return {
+          src: filename,
+          alt: img.alt_text || propertyName,
+          caption: img.caption,
+        };
+      })
     : [{ src: 'https://placehold.co/800x600?text=No+Image', alt: 'No image available' }];
 
   const handlePrev = () => {
@@ -51,8 +60,12 @@ const PropertyGallery = ({ images, propertyName }) => {
           <img
             src={allImages[currentImage].src}
             alt={allImages[currentImage].alt}
-            className="w-full h-full object-contain cursor-zoom-in"
+            className="w-full h-full object-cover object-center cursor-zoom-in block transition-transform duration-500 hover:scale-105"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = 'https://placehold.co/800x600?text=No+Image';
+            }}
           />
           {allImages.length > 1 && (
             <>
@@ -90,8 +103,12 @@ const PropertyGallery = ({ images, propertyName }) => {
                 <img
                   src={img.src}
                   alt={img.alt}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover object-center block"
                   loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://placehold.co/400x300?text=No+Image';
+                  }}
                 />
               </button>
             ))}

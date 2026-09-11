@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+// Buffer all output so an uncaught exception below can still emit a clean
+// JSON 500 (instead of a blank/HTML 500 that is impossible to diagnose).
+ob_start();
+
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/cors.php';
@@ -18,9 +22,27 @@ Cors::init();
 Cors::handlePreflight();
 
 $method = $_SERVER['REQUEST_METHOD'];
+
+// ---------------------------------------------------------------------------
+// Resolve the API base path dynamically so the backend works at ANY hosting
+// path depth (XAMPP: /homes/backend/api, TrueHost: /backend/api, subfolders...).
+// SCRIPT_NAME points to this file, e.g. "/homes/backend/api/index.php".
+// ---------------------------------------------------------------------------
 $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-$path = preg_replace('#^/homes/backend/api(/index\.php)?#', '', $rawPath);
-$path = preg_replace('#^/homes/backend(/index\.php)?#', '', $path);
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$apiBase = rtrim(preg_replace('#/index\.php$#', '', $scriptName), '/'); // e.g. /homes/backend/api
+
+if ($apiBase !== '' && strpos($rawPath, $apiBase) === 0) {
+    $path = substr($rawPath, strlen($apiBase));
+} else {
+    // Fallback for legacy/edge server configurations
+    $path = preg_replace('#^/homes/backend/api(/index\.php)?#', '', $rawPath);
+    $path = preg_replace('#^/homes/backend(/index\.php)?#', '', $path);
+    $path = preg_replace('#^/backend/api(/index\.php)?#', '', $path);
+    $path = preg_replace('#^/backend(/index\.php)?#', '', $path);
+}
+
+$path = preg_replace('#^/index\.php#', '', $path);
 $path = rtrim($path, '/');
 $path = $path === '' ? '/' : $path;
 
@@ -45,7 +67,25 @@ class ApiRouter
     {
         $pathSegments = array_values(array_filter(explode('/', trim($path, '/')), fn($s) => $s !== ''));
 
+        // Pass 1: Prioritize exact static matches (routes without parameters)
         foreach (self::$routes as $route) {
+            if ($route['method'] !== $method) {
+                continue;
+            }
+            if (strpos($route['path'], '{') === false) {
+                $routeSegments = array_values(array_filter(explode('/', trim($route['path'], '/')), fn($s) => $s !== ''));
+                if ($routeSegments === $pathSegments) {
+                    self::executeRoute($route, []);
+                    return;
+                }
+            }
+        }
+
+        // Pass 2: Match parameterized routes
+        foreach (self::$routes as $route) {
+            if ($route['method'] !== $method) {
+                continue;
+            }
             $routeSegments = array_values(array_filter(explode('/', trim($route['path'], '/')), fn($s) => $s !== ''));
 
             if (count($routeSegments) !== count($pathSegments)) {
@@ -64,7 +104,7 @@ class ApiRouter
                 }
             }
 
-            if ($match && $route['method'] === $method) {
+            if ($match) {
                 self::executeRoute($route, $params);
                 return;
             }
@@ -114,6 +154,23 @@ require_once __DIR__ . '/faqs/index.php';
 require_once __DIR__ . '/testimonials/index.php';
 require_once __DIR__ . '/menus/index.php';
 require_once __DIR__ . '/media/index.php';
-require_once __DIR__ . '/menu/index.php';
 
-ApiRouter::dispatch($method, $path);
+try {
+    ApiRouter::dispatch($method, $path);
+} catch (Throwable $e) {
+    // Discard any partial output so the error response stays valid JSON.
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    // Full context goes to backend/logs/php_errors.log — never to the client.
+    error_log('[API] ' . $method . ' ' . ($_SERVER['REQUEST_URI'] ?? '') . ' :: '
+        . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode([
+        'success' => false,
+        'message' => 'Service temporarily unavailable. Please try again later.',
+    ]);
+}

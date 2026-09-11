@@ -24,7 +24,7 @@ import { formatNumber, getRelativeTime } from '@/utils';
 const AdminMessages = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -63,9 +63,9 @@ const AdminMessages = () => {
     },
   });
 
-  const messages = data?.success ? data.data.data || data.data : [];
-  const totalPages = data?.success ? Math.ceil((data.data.total || 0) / limit) : 0;
-  const total = data?.success ? (data.data.total || 0) : 0;
+  const messages = data?.success ? (data.data.data || data.data) : [];
+  const total = data?.success ? (data.data.total ?? data.data.pagination?.total ?? 0) : 0;
+  const totalPages = Math.ceil(total / limit);
 
   const handleDelete = () => {
     if (messageToDelete) {
@@ -76,6 +76,8 @@ const AdminMessages = () => {
   const getTypeBadge = (type) => {
     const styles = {
       general: 'bg-primary/10 text-primary',
+      contact_form: 'bg-primary/10 text-primary',
+      website: 'bg-info/10 text-info',
       property: 'bg-success/10 text-success',
       viewing: 'bg-warning/10 text-warning',
       complaint: 'bg-error/10 text-error',
@@ -162,16 +164,24 @@ const AdminMessages = () => {
                   {messages.map((msg) => (
                     <tr key={msg.id} className="border-b border-border last:border-0 hover:bg-surface-hover transition-colors">
                       <td className="p-4">
-                        <div>
-                          <p className="font-medium text-text">{msg.name}</p>
+                        <Link to={`/admin/messages/${msg.id}`} className="group block">
+                          <p className="font-medium text-text group-hover:text-primary transition-colors">{msg.name}</p>
                           <p className="text-sm text-muted">{msg.email}</p>
-                        </div>
+                        </Link>
                       </td>
                       <td className="p-4 hidden md:table-cell text-sm text-muted">
-                        {msg.subject || 'No subject'}
+                        <Link to={`/admin/messages/${msg.id}`} className="hover:text-primary transition-colors">
+                          {msg.subject || 'No subject'}
+                        </Link>
                       </td>
                       <td className="p-4 hidden lg:table-cell text-sm text-muted">
-                        {msg.property_name || 'N/A'}
+                        {msg.property_name ? (
+                          <Link to={`/properties/${msg.property_slug}`} className="hover:text-primary hover:underline">
+                            {msg.property_name}
+                          </Link>
+                        ) : (
+                          'General'
+                        )}
                       </td>
                       <td className="p-4">
                         <span className={['px-2 py-1 rounded-full text-xs font-medium', getTypeBadge(msg.type)].join(' ')}>
@@ -188,13 +198,13 @@ const AdminMessages = () => {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => { setSelectedMessage(msg); setShowViewModal(true); }}
-                            className="p-2 hover:bg-surface rounded-lg transition-colors"
-                            title="View Message"
+                          <Link
+                            to={`/admin/messages/${msg.id}`}
+                            className="p-2 hover:bg-primary/10 text-muted hover:text-primary rounded-lg transition-colors"
+                            title="Open Conversation"
                           >
-                            <Eye className="w-4 h-4 text-muted" />
-                          </button>
+                            <Eye className="w-4 h-4" />
+                          </Link>
                           <button
                             onClick={() => { setMessageToDelete(msg); setShowDeleteModal(true); }}
                             className="p-2 hover:bg-error/10 rounded-lg transition-colors"
@@ -242,7 +252,15 @@ const AdminMessages = () => {
               <p className="text-sm text-muted mb-2">Message</p>
               <p className="text-text whitespace-pre-wrap">{selectedMessage.message}</p>
             </div>
-            <p className="text-sm text-muted">Received: {new Date(selectedMessage.created_at).toLocaleString()}</p>
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-muted">Received: {new Date(selectedMessage.created_at).toLocaleString()}</p>
+              <Link
+                to={`/admin/messages/${selectedMessage.id}`}
+                className="btn btn-primary btn-sm"
+              >
+                Reply & View Thread
+              </Link>
+            </div>
           </div>
         </Modal>
       )}

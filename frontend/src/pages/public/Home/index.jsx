@@ -1,32 +1,50 @@
 import { useQuery } from '@tanstack/react-query';
 import { propertiesAPI, settingsAPI, pagesAPI } from '@/services/api';
 import { Link } from 'react-router-dom';
+import { Compass, ArrowRight, CheckCircle2, Sparkles, Trees } from 'lucide-react';
 import PropertyCard from '@/components/PropertyCard';
 import PropertySearch from '@/components/PropertySearch';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import { useSettings } from '@/context/SettingsContext';
-import PromotionCard from '@/components/PromotionCard';
 
 const Home = () => {
   const { settings } = useSettings();
 
-  const { data: featuredData, isLoading: featuredLoading } = useQuery({
-    queryKey: ['properties.featured'],
-    queryFn: () => propertiesAPI.getFeatured({ limit: 6 }),
-  });
-
   const { data: latestData, isLoading: latestLoading } = useQuery({
     queryKey: ['properties.latest'],
-    queryFn: () => propertiesAPI.getLatest({ limit: 6 }),
+    queryFn: () => propertiesAPI.getLatest({ limit: 8 }),
+  });
+
+  const { data: featuredData, isLoading: featuredLoading } = useQuery({
+    queryKey: ['properties.featured'],
+    queryFn: () => propertiesAPI.getFeatured({ limit: 4 }),
+  });
+
+  const { data: plotsData, isLoading: plotsLoading } = useQuery({
+    queryKey: ['properties.plots.home'],
+    queryFn: () => propertiesAPI.getAll({ type: 'plot', limit: 4 }),
+  });
+
+  const { data: landData, isLoading: landLoading } = useQuery({
+    queryKey: ['properties.land.home'],
+    queryFn: () => propertiesAPI.getAll({ type: 'land', limit: 4 }),
   });
 
   const featuredProperties = featuredData?.success ? featuredData.data : [];
   const latestProperties = latestData?.success ? latestData.data : [];
+  const plotProperties = Array.isArray(plotsData?.data?.data)
+    ? plotsData.data.data
+    : Array.isArray(plotsData?.data)
+    ? plotsData.data
+    : [];
+  const landProperties = Array.isArray(landData?.data?.data)
+    ? landData.data.data
+    : Array.isArray(landData?.data)
+    ? landData.data
+    : [];
 
   return (
     <>
-      <PromotionCard />
-
       <section className="py-12 lg:py-16">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -42,34 +60,174 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-8 bg-surface">
+      {/* Latest Properties Section (Top Priority) */}
+      <section className="py-10 bg-surface/60 border-y border-border">
         <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold text-text mb-6">Featured Properties</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-2">
+                <Sparkles size={14} />
+                <span>Newly Added</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-text">Latest Properties</h2>
+              <p className="text-sm text-muted mt-0.5">Explore our most recent property listings on the market</p>
+            </div>
+            <Link to="/properties" className="btn btn-outline text-xs sm:text-sm">
+              View All
+            </Link>
+          </div>
+          {latestLoading ? (
+            <div className="text-center py-12">
+              <p className="text-muted text-sm">Loading latest properties...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {latestProperties.map((property) => (
+                <PropertyCard key={property.id} property={property} />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Featured Properties Section */}
+      <section className="py-10">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-text">Featured Properties</h2>
+              <p className="text-sm text-muted mt-0.5">Handpicked premium properties selected for you</p>
+            </div>
+            <Link to="/properties?sort=featured" className="text-primary hover:text-primary-hover font-semibold text-sm">
+              View All Featured
+            </Link>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {featuredProperties.slice(0, 4).map((property) => (
               <PropertyCard key={property.id} property={property} />
             ))}
           </div>
-          <div className="text-center mt-8">
-            <Link to="/properties?sort=featured" className="btn btn-outline">
-              View All Featured
+        </div>
+      </section>
+
+      {/* Prime Plots Showcase Section */}
+      <section className="py-12 bg-gradient-to-b from-surface/50 to-background border-y border-border">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold mb-2">
+                <Compass size={14} />
+                <span>Hot Plot Opportunities</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-text">
+                Prime Plots for Sale
+              </h2>
+              <p className="text-sm text-muted mt-1 max-w-xl">
+                Ready-to-build residential 50×100 plots and commercial parcels with verified title deeds across Kenya.
+              </p>
+            </div>
+
+            <Link
+              to="/plots"
+              className="inline-flex items-center gap-2 text-primary hover:text-primary-hover font-semibold text-sm group"
+            >
+              <span>Explore All Plots</span>
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {plotProperties.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {plotProperties.slice(0, 4).map((plot) => (
+                <PropertyCard key={plot.id} property={plot} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-surface rounded-xl border border-border">
+              <p className="text-muted text-sm">Loading prime plot listings...</p>
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-border/60 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-emerald-500" /> Freehold Title Deeds
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-emerald-500" /> Electricity & Water On-Site
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-emerald-500" /> Beacons Identified & Marked
+              </span>
+            </div>
+
+            <Link
+              to="/plots"
+              className="btn btn-outline text-xs px-4 py-2"
+            >
+              View Full Plot Catalog
             </Link>
           </div>
         </div>
       </section>
 
-      <section className="py-12">
+      {/* Prime Land & Acreage Showcase Section */}
+      <section className="py-12 bg-surface/40 border-b border-border">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-text">Latest Properties</h2>
-            <Link to="/properties" className="text-primary hover:text-primary-hover font-medium">
-              View all properties
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold mb-2">
+                <Trees size={14} />
+                <span>Acreage & Strategic Parcels</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-text">
+                Prime Land for Sale
+              </h2>
+              <p className="text-sm text-muted mt-1 max-w-xl">
+                Expansive agricultural tracts, development parcels, and strategic land investments with verified registry records.
+              </p>
+            </div>
+
+            <Link
+              to="/properties?type=land"
+              className="inline-flex items-center gap-2 text-primary hover:text-primary-hover font-semibold text-sm group"
+            >
+              <span>Explore All Land</span>
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {latestProperties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
-            ))}
+
+          {landProperties.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {landProperties.slice(0, 4).map((land) => (
+                <PropertyCard key={land.id} property={land} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-surface rounded-xl border border-border">
+              <p className="text-muted text-sm">Loading prime land listings...</p>
+            </div>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-border/60 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-amber-500" /> Agricultural & Commercial Zoning
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-amber-500" /> Verified Registry Records
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle2 size={14} className="text-amber-500" /> Flexible Acreage & Subdivision
+              </span>
+            </div>
+
+            <Link
+              to="/properties?type=land"
+              className="btn btn-outline text-xs px-4 py-2"
+            >
+              View Full Land Catalog
+            </Link>
           </div>
         </div>
       </section>

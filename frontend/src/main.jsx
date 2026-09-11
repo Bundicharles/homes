@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { SettingsProvider } from '@/context/SettingsContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { PWAProvider } from '@/context/PWAContext';
 import App from '@/App';
 import '@/index.css';
 
@@ -24,9 +25,19 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <SettingsProvider>
         <AuthProvider>
           <NotificationProvider>
-            <BrowserRouter basename={import.meta.env.DEV ? '/' : '/homes/dist'}>
-              <App />
-            </BrowserRouter>
+            <PWAProvider>
+              <BrowserRouter
+                basename={
+                  typeof window !== 'undefined' && window.location.pathname.startsWith('/homes/dist')
+                    ? '/homes/dist'
+                    : typeof window !== 'undefined' && window.location.pathname.startsWith('/homes')
+                    ? '/homes'
+                    : '/'
+                }
+              >
+                <App />
+              </BrowserRouter>
+            </PWAProvider>
           </NotificationProvider>
         </AuthProvider>
       </SettingsProvider>

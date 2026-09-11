@@ -1,15 +1,16 @@
-import { Bell } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { resolveAssetUrl } from '@/utils';
 
-const CustomerTopbar = () => {
+const CustomerTopbar = ({ onMenuToggle }) => {
   const { user } = useAuth();
   const { unreadCount, markAllRead } = useNotifications();
 
   const displayName = user?.name || 'Customer';
   const profileImage =
-    user?.profile_image ||
+    resolveAssetUrl(user?.profile_image) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2563eb&color=fff`;
 
   const handleMarkAllRead = () => {
@@ -21,11 +22,22 @@ const CustomerTopbar = () => {
   return (
     <header className="sticky top-0 z-30 bg-surface shadow-card border-b border-border">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-        <h1 className="text-lg font-semibold text-text">
-          Welcome, {displayName}
-        </h1>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onMenuToggle && (
+            <button
+              onClick={onMenuToggle}
+              className="lg:hidden -ml-2 p-2 text-muted hover:text-text rounded-lg hover:bg-surface-hover transition-smooth shrink-0"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+          <h1 className="text-base sm:text-lg font-semibold text-text truncate min-w-0">
+            Welcome, {displayName}
+          </h1>
+        </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <Link
             to="/dashboard/notifications"
             onClick={handleMarkAllRead}

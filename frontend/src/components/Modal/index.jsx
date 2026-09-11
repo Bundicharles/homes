@@ -21,7 +21,7 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'lg', showC
       onClick={onClose}
     >
       <div
-        className={['bg-surface rounded-xl shadow-2xl w-full', maxWidthClass, 'max-h-[90vh]', 'overflow-y-auto'].join(' ')}
+        className={['relative bg-surface rounded-xl shadow-2xl w-full', maxWidthClass, 'max-h-[90vh]', 'overflow-y-auto'].join(' ')}
         onClick={(e) => e.stopPropagation()}
       >
         {showClose && (

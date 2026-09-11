@@ -56,7 +56,7 @@ const CustomerNotifications = () => {
     refetch,
   } = useNotifications();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   useEffect(() => {
     document.title = `Notifications | ${businessName}`;

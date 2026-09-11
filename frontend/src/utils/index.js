@@ -15,12 +15,34 @@ export const formatPriceRaw = (price, currency = 'KES') => {
 };
 
 export const formatNumber = (num) => {
-  return num.toLocaleString('en-KE');
+  const value = Number(num);
+  if (!Number.isFinite(value)) return '0';
+  return value.toLocaleString('en-KE');
 };
 
 export const truncateText = (text, maxLength) => {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
+  const value = text == null ? '' : String(text);
+  if (value.length <= maxLength) return value;
+  return value.slice(0, maxLength) + '...';
+};
+
+export const extractList = (response) => {
+  if (Array.isArray(response)) return response;
+  const payload = response?.data;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
+export const extractTotal = (response, fallback = 0) => {
+  const payload = response?.data;
+  const total =
+    payload?.pagination?.total ??
+    payload?.total ??
+    response?.pagination?.total ??
+    fallback;
+  return Number(total) || 0;
 };
 
 export const generateWhatsAppUrl = (phone, message) => {
@@ -55,7 +77,9 @@ export const calculateReadingTime = (text) => {
 };
 
 export const getRelativeTime = (dateString) => {
+  if (!dateString) return '';
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -79,10 +103,81 @@ export const generateSlug = (text) => {
 };
 
 export const getInitials = (name) => {
-  return name
+  if (!name) return 'A';
+  return String(name)
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 };
+
+// Base URL for uploaded files (they live in backend/uploads).
+// - TrueHost / root domain: /backend/
+// - Local XAMPP subfolder: /homes/backend/
+export const getUploadBase = () => {
+  const isHomes = typeof window !== 'undefined' && window.location.pathname.startsWith('/homes');
+  const envUpload = import.meta.env?.VITE_UPLOAD_BASE;
+  let base;
+  if (envUpload) {
+    if (envUpload.startsWith('/homes') && !isHomes) {
+      base = '/backend';
+    } else {
+      base = envUpload;
+    }
+  } else {
+    base = isHomes ? '/homes/backend' : '/backend';
+  }
+  return base.endsWith('/') ? base : base + '/';
+};
+
+// Dist root where the built SPA lives (used for fallback static assets).
+export const getAppBase = () => {
+  if (typeof window === 'undefined') return '';
+  const path = window.location.pathname;
+  if (path.startsWith('/homes/dist')) return '/homes/dist';
+  if (path.startsWith('/homes')) return '/homes';
+  return '';
+};
+
+// Rebase any uploads URL (however it was stored in DB) to the current env-correct path.
+export const resolveAssetUrl = (url, fallback = '') => {
+  if (!url) return fallback;
+  if (/^https?:\/\/|^\/\//i.test(url) || /^data:|^blob:/i.test(url)) return url;
+
+  let cleaned = String(url).trim().replace(/\\/g, '/');
+
+  // If it's a frontend static asset (e.g. /logo.svg, /logo-white.svg, /homes/dist/logo.svg)
+  const appBase = getAppBase();
+  if (appBase && cleaned.startsWith(appBase)) {
+    return cleaned;
+  }
+  if (/^\/?(logo|favicon|pwa|sw|apple-touch-icon)[^/]*$/i.test(cleaned)) {
+    const asset = cleaned.replace(/^\/+/, '');
+    return appBase ? `${appBase}/${asset}` : `/${asset}`;
+  }
+
+  // Strip leading slashes
+  cleaned = cleaned.replace(/^\/+/, '');
+
+  // Strip leading redundant URL/path segments:
+  // e.g. "homes/backend/uploads/...", "backend/uploads/...", "uploads/..."
+  cleaned = cleaned.replace(/^(?:homes\/)?backend\//i, '');
+  cleaned = cleaned.replace(/^uploads\//i, '');
+
+  const uploadBase = getUploadBase();
+  return `${uploadBase}uploads/${cleaned}`;
+};
+
+// Format bytes up to Gigabytes
+export const formatBytes = (bytes) => {
+  const num = Number(bytes);
+  if (!num || isNaN(num)) return '—';
+  if (num < 1024) return `${num} B`;
+  if (num < 1048576) return `${(num / 1024).toFixed(1)} KB`;
+  if (num < 1073741824) return `${(num / 1048576).toFixed(1)} MB`;
+  return `${(num / 1073741824).toFixed(2)} GB`;
+};
+
+

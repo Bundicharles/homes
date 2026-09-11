@@ -24,14 +24,14 @@ import { customersAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton, Modal } from '@/components/Modal';
 import VatExcl from '@/components/VatExcl';
-import { formatPrice, getRelativeTime } from '@/utils';
+import { formatPrice, getRelativeTime, getUploadBase } from '@/utils';
 
 const CustomerView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -75,7 +75,7 @@ const CustomerView = () => {
 
   // Delete Mutation
   const deleteMutation = useMutation({
-    mutationFn: () => customersAPI.delete ? customersAPI.delete(id) : fetch(`/homes/backend/api/admin/customers/${id}`, { method: 'DELETE' }),
+    mutationFn: () => customersAPI.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.customers'] });
       navigate('/admin/customers');
@@ -125,7 +125,7 @@ const CustomerView = () => {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-text">{customer.name}</h1>
-            <p className="text-sm text-muted">Customer Account #{customer.id} • Registered {getRelativeTime(customer.created_at)}</p>
+            <p className="text-sm text-muted">Customer Account #{customer.id} â€¢ Registered {getRelativeTime(customer.created_at)}</p>
           </div>
         </div>
 
@@ -380,7 +380,7 @@ const CustomerView = () => {
               <div key={fav.id || fav.favorite_id} className="card overflow-hidden group">
                 <div className="aspect-[16/10] bg-muted/20 relative">
                   <img
-                    src={fav.primary_image ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${fav.primary_image}` : 'https://placehold.co/400x250?text=No+Image'}
+                    src={fav.primary_image ? `${getUploadBase()}uploads/properties/${fav.primary_image}` : 'https://placehold.co/400x250?text=No+Image'}
                     alt={fav.name}
                     className="w-full h-full object-cover"
                   />

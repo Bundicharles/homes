@@ -13,14 +13,17 @@ import {
   Bell,
   Database,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 import { settingsAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
+import { usePWA } from '@/context/PWAContext';
 import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 
 const AdminSettings = () => {
-  const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const { settings: currentSettings, refreshSettings } = useSettings();
+  const { isInstalled, installApp } = usePWA();
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);
@@ -44,6 +47,7 @@ const AdminSettings = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings.public'] });
+      refreshSettings?.();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     },
@@ -299,6 +303,39 @@ const AdminSettings = () => {
             <Save className="w-4 h-4" />
             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
           </button>
+        </div>
+      </div>
+
+      {/* PWA & Desktop App Settings Card */}
+      <div className="card p-6 border-primary/20 bg-gradient-to-r from-surface to-primary/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center text-primary shrink-0">
+              <Download className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-text">Progressive Web App (PWA)</h2>
+              <p className="text-sm text-muted">
+                Install Hemaprin Homes Admin directly onto your desktop or mobile home screen as a standalone application.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-3">
+            {isInstalled ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-success/15 text-success border border-success/30">
+                ✓ Installed as Standalone App
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={installApp}
+                className="btn btn-primary flex items-center gap-2 text-xs sm:text-sm font-semibold"
+              >
+                <Download className="w-4 h-4" />
+                Install Admin App
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

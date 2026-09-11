@@ -1,7 +1,28 @@
 import axios from 'axios';
 
+// Resolve the API base URL so the app works in any environment:
+// - TrueHost / root domain (e.g. example.com/): /backend/api
+// - Local XAMPP subfolder (e.g. localhost/homes/): /homes/backend/api
+// - Explicit custom VITE_API_URL if set and matching environment
+const resolveBaseURL = () => {
+  const envUrl = import.meta.env?.VITE_API_URL;
+  if (envUrl) return envUrl;
+
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const isHomes =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/homes');
+
+  if (isLocalhost || isHomes) {
+    return '/homes/backend/api';
+  }
+
+  return '/backend/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost/homes/backend/api',
+  baseURL: resolveBaseURL(),
   timeout: 30000,
   withCredentials: true,
 });
@@ -172,11 +193,20 @@ export const mediaAPI = {
     if (data?.description) formData.append('description', data.description);
     return api.post('/admin/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
     });
   },
+  getPublic: (params) => api.get('/media', { params }),
   getAll: (params) => api.get('/admin/media', { params }),
   delete: (id) => api.delete(`/admin/media/${id}`),
   update: (id, data) => api.put(`/admin/media/${id}`, data),
+};
+
+export const galleryAPI = {
+  getAll: (params) => api.get('/media', { params }),
+  getById: (id) => api.get(`/media/${id}`),
 };
 
 export const customersAPI = {
@@ -212,7 +242,7 @@ export const menusAPI = {
 };
 
 export const testimonialsAPI = {
-  getAll: () => api.get('/admin/testimonials'),
+  getAll: (params) => api.get('/admin/testimonials', { params }),
   getPublic: () => api.get('/testimonials'),
   create: (data) => api.post('/admin/testimonials', data),
   update: (id, data) => api.put(`/admin/testimonials/${id}`, data),
@@ -268,11 +298,15 @@ export const documentsAPI = {
     if (data.verification_id) formData.append('verification_id', data.verification_id);
     return api.post('/admin/documents', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
     });
   },
   update: (id, data) => api.put(`/admin/documents/${id}`, data),
   delete: (id) => api.delete(`/admin/documents/${id}`),
   serve: (id) => api.get(`/admin/documents/serve/${id}`, { responseType: 'blob' }),
+  getServeUrl: (id) => `${resolveBaseURL()}/admin/documents/serve/${id}`,
 };
 
 export default api;

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { useSettings } from '@/context/SettingsContext';
 import PublicLayout from '@/layouts/PublicLayout';
 import AdminLayout from '@/layouts/AdminLayout';
@@ -9,6 +9,7 @@ import PropertyDetails from '@/pages/public/PropertyDetails';
 import About from '@/pages/public/About';
 import Services from '@/pages/public/Services';
 import Contact from '@/pages/public/Contact';
+import Gallery from '@/pages/public/Gallery';
 import Favorites from '@/pages/public/Favorites';
 import InterestedProperties from '@/pages/public/InterestedProperties';
 import Login from '@/pages/public/Login';
@@ -22,8 +23,10 @@ import PropertyDisclaimer from '@/pages/public/PropertyDisclaimer';
 import Unauthorized from '@/pages/public/Unauthorized';
 import DynamicPage from '@/pages/public/DynamicPage';
 import NotFound from '@/pages/public/NotFound';
+import Plots from '@/pages/public/Plots';
 import AdminDashboard from '@/pages/admin/Dashboard';
 import AdminProperties from '@/pages/admin/Properties';
+import AdminPlots from '@/pages/admin/Plots';
 import AddProperty from '@/pages/admin/AddProperty';
 import EditProperty from '@/pages/admin/EditProperty';
 import AdminMessages from '@/pages/admin/Messages';
@@ -56,6 +59,8 @@ import EarbInfo from '@/pages/admin/EarbInfo';
 import PropertyType from '@/pages/admin/PropertyType';
 import PropertyValue from '@/pages/admin/PropertyValue';
 import Verification from '@/pages/admin/Verification';
+import AdminNotifications from '@/pages/admin/Notifications';
+import AdminProfile from '@/pages/admin/Profile';
 import CustomerDashboard from '@/pages/customer/Dashboard';
 import CustomerProfile from '@/pages/customer/Profile';
 import CustomerFavorites from '@/pages/customer/MyFavorites';
@@ -76,6 +81,7 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="properties" element={<AdminProperties />} />
+            <Route path="plots" element={<AdminPlots />} />
             <Route path="properties/add" element={<AddProperty />} />
             <Route path="properties/edit/:id" element={<EditProperty />} />
             <Route path="properties/types" element={<PropertyType />} />
@@ -91,6 +97,8 @@ function App() {
             <Route path="promotions" element={<PromotionManager />} />
             <Route path="media" element={<MediaLibrary />} />
             <Route path="pages" element={<AdminPages />} />
+            <Route path="pages/add" element={<PageBuilder />} />
+            <Route path="pages/new" element={<PageBuilder />} />
             <Route path="pages/builder/:id" element={<PageBuilder />} />
             <Route path="menus" element={<Menus />} />
             <Route path="testimonials" element={<Testimonials />} />
@@ -108,6 +116,9 @@ function App() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
             <Route path="earb" element={<EarbInfo />} />
+            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="profile" element={<AdminProfile />} />
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
 
@@ -126,8 +137,10 @@ function App() {
         <Route path="/" element={<PublicLayout />}>
           <Route index element={<Home />} />
           <Route path="properties" element={<Properties />} />
+          <Route path="plots" element={<Plots />} />
           <Route path="properties/:slug" element={<PropertyDetails />} />
           <Route path="about" element={<About />} />
+          <Route path="gallery" element={<Gallery />} />
           <Route path="services" element={<Services />} />
           <Route path="contact" element={<Contact />} />
           <Route path="favorites" element={<Favorites />} />

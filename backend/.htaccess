@@ -1,10 +1,70 @@
 RewriteEngine On
 
-# Allow CORS preflight - pass OPTIONS through to PHP
-# (PHP CORS handler will respond with appropriate headers and 204 status)
+# ===========================================================================
+# SECURITY — block direct access to sensitive files and folders.
+# Only /api/* is meant to be hit over HTTP; everything else (config, includes,
+# database schema/seed, logs, .env) must never be downloadable.
+# ===========================================================================
 
-# Route all API requests to index.php
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# Block sensitive file types (.env, SQL dumps, logs, docs)
+<FilesMatch "\.(env|sql|log|ini|md|lock|json|example)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Block dotfiles (.htaccess, .git, etc.)
+<FilesMatch "^\.">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Block internal application folders (config/, includes/, database/, logs/)
+RewriteRule ^(config|includes|database|logs)(/.*)?$ - [F,L]
+
+# Private documents are only served through the authenticated API endpoint
+RewriteRule ^uploads/documents/private(/.*)?$ - [F,L]
+
+# ===========================================================================
+# ROUTING — send all API requests to the API front controller
+# ===========================================================================
+
+RewriteCond %{REQUEST_URI} ^.*/api/
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+# ===========================================================================
+# UPLOAD LIMITS — 10GB max upload size & generous execution timeouts
+# ===========================================================================
+<IfModule mod_php.c>
+  php_value upload_max_filesize 10G
+  php_value post_max_size 10G
+  php_value memory_limit 1024M
+  php_value max_execution_time 3600
+  php_value max_input_time 3600
+</IfModule>
+<IfModule mod_php7.c>
+  php_value upload_max_filesize 10G
+  php_value post_max_size 10G
+  php_value memory_limit 1024M
+  php_value max_execution_time 3600
+  php_value max_input_time 3600
+</IfModule>
+<IfModule mod_php8.c>
+  php_value upload_max_filesize 10G
+  php_value post_max_size 10G
+  php_value memory_limit 1024M
+  php_value max_execution_time 3600
+  php_value max_input_time 3600
+</IfModule>
+
+LimitRequestBody 0
 

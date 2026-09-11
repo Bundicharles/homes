@@ -14,7 +14,7 @@ const ResetPassword = () => {
   const [submitStatus, setSubmitStatus] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const searchParams = new URLSearchParams(location.search);
   const token = searchParams.get('token') || searchParams.get('reset_token');

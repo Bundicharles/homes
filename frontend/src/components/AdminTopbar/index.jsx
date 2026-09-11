@@ -3,17 +3,22 @@ import { Bell, User, Settings, LogOut, Menu, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { useSettings } from '@/context/SettingsContext';
+import { resolveAssetUrl } from '@/utils';
+import { PWAInstallButton } from '@/components/PWAInstallPrompt';
 
 const AdminTopbar = ({ onMenuToggle }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { user, logout } = useAuth();
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
+  const { settings } = useSettings();
   const navigate = useNavigate();
 
   const displayName = user?.name || 'Admin';
+  const businessName = settings?.business_name || 'Hemaprin Homes';
   const profileImage =
-    user?.profile_image ||
+    resolveAssetUrl(user?.profile_image) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=2563eb&color=fff`;
 
   const handleLogout = async () => {
@@ -33,22 +38,23 @@ const AdminTopbar = ({ onMenuToggle }) => {
   return (
     <header className="sticky top-0 z-30 bg-surface shadow-card border-b border-border">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {onMenuToggle && (
             <button
               onClick={onMenuToggle}
-              className="hidden lg:inline-block p-2 text-muted hover:text-text rounded-lg hover:bg-surface-hover transition-smooth"
-              aria-label="Toggle sidebar"
+              className="lg:hidden -ml-2 p-2 text-muted hover:text-text rounded-lg hover:bg-surface-hover transition-smooth shrink-0"
+              aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
             </button>
           )}
-          <h1 className="text-lg font-semibold text-text">
-            Prime Realty Kenya
+          <h1 className="text-base sm:text-lg font-semibold text-text truncate min-w-0">
+            {businessName}
           </h1>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <PWAInstallButton />
           <div className="relative">
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -71,7 +77,7 @@ const AdminTopbar = ({ onMenuToggle }) => {
             )}
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute right-0 z-20 mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] bg-surface border border-border rounded-xl shadow-2xl overflow-hidden">
                 <div className="flex items-center justify-between p-3 border-b border-border">
                   <h3 className="font-medium text-text">Notifications</h3>
                   {unreadCount > 0 && (
@@ -153,7 +159,7 @@ const AdminTopbar = ({ onMenuToggle }) => {
             )}
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute right-0 z-20 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl overflow-hidden">
                 <Link
                   to="/admin/profile"
                   onClick={() => setProfileOpen(false)}

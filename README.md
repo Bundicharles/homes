@@ -125,10 +125,11 @@ npm install
 ### 6. Build frontend for production
 
 ```bash
+cd frontend
 npm run build
 ```
 
-This creates the production build in `frontend/dist/`.
+This creates the production build in `dist/` (relative to the project root), and a `closeBundle` hook automatically syncs the build artifacts to the project root.
 
 ### 7. Configure Vite proxy (development only)
 
@@ -147,8 +148,8 @@ server: {
 
 ### 8. Access the application
 
-**Public site**: http://localhost/homes/frontend/dist/ (after building)
-**Admin panel**: http://localhost/homes/frontend/dist/admin
+**Public site**: http://localhost/homes/ (after building and syncing to root)
+**Admin panel**: http://localhost/homes/admin
 **API base**: http://localhost/homes/backend/api
 
 ## Development

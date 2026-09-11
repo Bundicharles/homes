@@ -8,7 +8,7 @@ import { LoadingSkeleton } from '@/components/Modal';
 const DynamicPage = () => {
   const { pageSlug } = useParams();
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['page', pageSlug],

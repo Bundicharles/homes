@@ -7,7 +7,7 @@ import { Shield, Calendar } from 'lucide-react';
 const PrivacyPolicy = () => {
   const { settings } = useSettings();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
   const description = settings.description || 'Your trusted partner in Kenyan real estate.';
 
   const { data, isLoading, error } = useQuery({

@@ -16,7 +16,7 @@ import { LoadingSkeleton, Pagination } from '@/components/Modal';
 
 const AdminSocialSettings = () => {
   const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);

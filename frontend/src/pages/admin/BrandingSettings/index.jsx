@@ -9,12 +9,13 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { settingsAPI, mediaAPI } from '@/services/api';
+import { getAppBase, getUploadBase, resolveAssetUrl } from '@/utils';
 import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 
 const AdminBrandingSettings = () => {
-  const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const { settings: currentSettings, refreshSettings } = useSettings();
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);
@@ -39,6 +40,7 @@ const AdminBrandingSettings = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings.public'] });
+      refreshSettings?.();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     },
@@ -74,7 +76,7 @@ const AdminBrandingSettings = () => {
       const result = await mediaAPI.upload(file, 'branding', {});
       if (result.success) {
         const basePath = result.data?.file_path || `uploads/branding/${result.data?.filename}`;
-        handleChange(key, '/' + basePath);
+        handleChange(key, basePath);
       }
     } catch {
       // upload error
@@ -200,11 +202,18 @@ const AdminBrandingSettings = () => {
                 {currentValue ? (
                   <div className="relative w-full h-24 border-2 border-border border-dashed rounded-lg overflow-hidden bg-surface-hover/50">
                     <img
-                      src={currentValue}
+                      src={resolveAssetUrl(currentValue)}
                       alt={field.label}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain p-2"
                       onError={(e) => {
-                        e.target.style.display = 'none';
+                        const fallback = field.key.includes('favicon')
+                          ? `${getAppBase()}/favicon.svg`
+                          : field.key.includes('light') || field.key.includes('white')
+                          ? `${getAppBase()}/logo-white.svg`
+                          : `${getAppBase()}/logo.svg`;
+                        if (!e.currentTarget.src.endsWith(fallback)) {
+                          e.currentTarget.src = fallback;
+                        }
                       }}
                     />
                     <div className="absolute top-2 right-2 flex gap-1">

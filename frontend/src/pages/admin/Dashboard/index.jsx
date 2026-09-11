@@ -10,16 +10,18 @@ import {
   Eye,
   Megaphone,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { analyticsAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 import { formatNumber } from '@/utils';
+import { AnalyticsGraph } from '@/components/AnalyticsGraph';
 
 const AdminDashboard = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings?.business_name || 'Hemaprin Homes';
 
   const [activeTab, setActiveTab] = useState('30d');
 
@@ -42,7 +44,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin.dashboard.stats'],
     queryFn: () => analyticsAPI.getStats(),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const {
@@ -56,11 +59,23 @@ const AdminDashboard = () => {
         range: activeTab,
         field: 'created_at',
       }),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
-  const stats = statsData?.success ? statsData.data : null;
-  const charts = chartsData?.success ? chartsData.data : null;
+  const stats =
+    statsData?.success && statsData.data && typeof statsData.data === 'object' && !Array.isArray(statsData.data)
+      ? statsData.data
+      : null;
+  const charts =
+    chartsData?.success && chartsData.data && typeof chartsData.data === 'object' && !Array.isArray(chartsData.data)
+      ? chartsData.data
+      : null;
+
+  const refreshDashboard = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin.dashboard.stats'] });
+    queryClient.invalidateQueries({ queryKey: ['admin.analytics.charts'] });
+  };
 
   const statCards = stats
     ? [
@@ -163,48 +178,12 @@ const AdminDashboard = () => {
     { value: 'custom', label: 'Custom' },
   ];
 
-  const renderChart = (data, title, color) => {
-    if (!data || data.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-40 text-muted">
-          No data available
-        </div>
-      );
-    }
 
-    const maxCount = Math.max(...data.map((d) => d.count), 1);
-
-    return (
-      <div className="h-56">
-        <div className="flex items-end justify-between h-44 gap-1">
-          {data.map((item, index) => (
-            <div
-              key={index}
-              className="flex flex-col items-center flex-1 h-full justify-end"
-            >
-              <div
-                className="w-full max-w-[30px] rounded-t-sm transition-all"
-                style={{
-                  height: `${(item.count / maxCount) * 100}%`,
-                  backgroundColor: color,
-                  minHeight: '2px',
-                }}
-                title={`${item.day}: ${item.count}`}
-              />
-              <span className="text-xs text-muted mt-1 rotate-[-45deg] origin-top-left">
-                {item.day ? new Date(item.day).getDate() : index + 1}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   if (statsLoading && !stats) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="card p-4 animate-pulse">
               <div className="h-4 bg-muted/20 rounded w-3/4 mb-2" />
@@ -231,31 +210,40 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-text">
-          Admin Dashboard
-        </h1>
-        <p className="text-muted mt-1">
-          Overview of your real estate platform performance.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-text">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted mt-1">
+            Overview of your real estate platform performance.
+          </p>
+        </div>
+        <button type="button" onClick={refreshDashboard} className="btn btn-outline self-start">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
             <Link
               key={card.name}
               to={card.to}
-              className="card p-4 hover:shadow-card transition-shadow"
+              className="card p-3 sm:p-4 hover:shadow-card transition-shadow"
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${card.bg}`}>
-                  <Icon className={`w-6 h-6 ${card.color}`} />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div
+                  className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-lg flex items-center justify-center ${card.bg}`}
+                >
+                  <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${card.color}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-muted truncate">{card.name}</p>
-                  <p className="text-2xl font-bold text-text">
+                  <p className="text-xs sm:text-sm text-muted truncate">
+                    {card.name}
+                  </p>
+                  <p className="text-xl sm:text-2xl font-bold text-text">
                     {formatNumber(card.value)}
                   </p>
                 </div>
@@ -266,9 +254,11 @@ const AdminDashboard = () => {
       </div>
 
       <div className="card p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-text">Analytics Overview</h2>
-          <div className="flex items-center gap-2 bg-surface-hover rounded-lg p-1">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <h2 className="text-lg font-semibold text-text shrink-0">
+            Analytics Overview
+          </h2>
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 bg-surface-hover rounded-lg p-1 self-start sm:self-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.value}
@@ -297,25 +287,22 @@ const AdminDashboard = () => {
             Failed to load chart data
           </div>
         ) : charts ? (
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-sm font-medium text-muted mb-3">
-                Property Views
-              </h3>
-              {renderChart(charts.property_views_chart, 'Property Views', '#2563eb')}
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-muted mb-3">
-                Inquiries
-              </h3>
-              {renderChart(charts.inquiries_chart, 'Inquiries', '#ea580c')}
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-muted mb-3">
-                Customers
-              </h3>
-              {renderChart(charts.customers_chart, 'Customers', '#7c3aed')}
-            </div>
+          <div className="space-y-6">
+            <AnalyticsGraph
+              data={charts.property_views_chart}
+              title="Property Views"
+              color="#2563eb"
+            />
+            <AnalyticsGraph
+              data={charts.inquiries_chart}
+              title="Customer Inquiries"
+              color="#ea580c"
+            />
+            <AnalyticsGraph
+              data={charts.customers_chart}
+              title="New Customer Registrations"
+              color="#7c3aed"
+            />
           </div>
         ) : (
           <EmptyState message="No chart data available." />
@@ -337,16 +324,16 @@ const AdminDashboard = () => {
                 const percentage = Math.round((count / total) * 100);
                 return (
                   <div key={status} className="flex items-center gap-3">
-                    <div className="w-32 text-sm text-text">
+                    <div className="w-24 sm:w-32 shrink-0 text-sm text-text">
                       {status}
                     </div>
-                    <div className="flex-1 h-6 bg-surface-hover rounded-lg overflow-hidden">
+                    <div className="flex-1 min-w-0 h-6 bg-surface-hover rounded-lg overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-lg transition-all"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
-                    <span className="w-12 text-right text-sm font-medium text-text">
+                    <span className="w-12 shrink-0 text-right text-sm font-medium text-text">
                       {count}
                     </span>
                   </div>
@@ -410,7 +397,7 @@ const AdminDashboard = () => {
         </h3>
         {charts?.top_favorites && charts.top_favorites.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[480px]">
               <thead>
                 <tr className="border-b border-border bg-surface-hover/50">
                   <th className="text-left px-4 py-2 text-xs font-medium text-muted uppercase">

@@ -176,6 +176,27 @@ ApiRouter::add('PUT', '/admin/customers/{id}/status', function($params) {
     Response::success(null, 'Customer status updated');
 }, 'permission', 'customers.edit');
 
+// Convenience endpoint: enable/disable a customer account
+ApiRouter::add('POST', '/admin/customers/disable', function($params) {
+    $user = Auth::getCurrentUser();
+
+    $data = $GLOBALS['_INPUT'];
+    if (empty($data['id'])) {
+        Response::error('Customer id is required');
+    }
+
+    $status = 'Disabled';
+    if (isset($data['status'])) {
+        $status = $data['status'];
+    } elseif (isset($data['active']) && $data['active'] === true) {
+        $status = 'Active';
+    }
+
+    Database::getInstance()->prepare("UPDATE users SET status = ? WHERE id = ?")->execute([$status, $data['id']]);
+    Security::logAudit($user['id'], 'updated_customer_status', 'users', $data['id']);
+    Response::success(null, 'Customer ' . strtolower($status));
+}, 'permission', 'customers.edit');
+
 ApiRouter::add('DELETE', '/admin/customers/{id}', function($params) {
     $user = Auth::getCurrentUser();
     Permissions::requirePermission($user['id'], 'customers.delete', true);

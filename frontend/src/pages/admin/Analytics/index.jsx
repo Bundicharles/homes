@@ -20,10 +20,11 @@ import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton, EmptyState, Pagination } from '@/components/Modal';
 import VatExcl from '@/components/VatExcl';
 import { formatNumber, formatPrice } from '@/utils';
+import { AnalyticsGraph } from '@/components/AnalyticsGraph';
 
 const AdminAnalytics = () => {
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [activeTab, setActiveTab] = useState('overview');
   const [dateRange, setDateRange] = useState('30d');
@@ -134,43 +135,7 @@ const AdminAnalytics = () => {
       ]
     : [];
 
-  const renderChart = (data, title, color) => {
-    if (!data || data.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-40 text-muted">
-          No data available
-        </div>
-      );
-    }
 
-    const maxCount = Math.max(...data.map((d) => d.count), 1);
-
-    return (
-      <div className="h-56">
-        <div className="flex items-end justify-between h-44 gap-1">
-          {data.map((item, index) => (
-            <div
-              key={index}
-              className="flex flex-col items-center flex-1 h-full justify-end"
-            >
-              <div
-                className="w-full max-w-[30px] rounded-t-sm transition-all"
-                style={{
-                  height: `${(item.count / maxCount) * 100}%`,
-                  backgroundColor: color,
-                  minHeight: '2px',
-                }}
-                title={`${item.day ? new Date(item.day).toLocaleDateString() : index + 1}: ${item.count}`}
-              />
-              <span className="text-xs text-muted mt-1 rotate-[-45deg] origin-top-left">
-                {item.day ? new Date(item.day).getDate() : index + 1}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   const tabs = [
     { value: 'overview', label: 'Overview', icon: BarChart3 },
@@ -447,25 +412,22 @@ const AdminAnalytics = () => {
               Failed to load chart data
             </div>
           ) : charts ? (
-            <div className="space-y-8">
-              <div className="card p-6">
-                <h3 className="text-sm font-medium text-muted mb-3">
-                  Property Views
-                </h3>
-                {renderChart(charts.property_views_chart, 'Property Views', '#2563eb')}
-              </div>
-              <div className="card p-6">
-                <h3 className="text-sm font-medium text-muted mb-3">
-                  Inquiries
-                </h3>
-                {renderChart(charts.inquiries_chart, 'Inquiries', '#ea580c')}
-              </div>
-              <div className="card p-6">
-                <h3 className="text-sm font-medium text-muted mb-3">
-                  Customers
-                </h3>
-                {renderChart(charts.customers_chart, 'Customers', '#7c3aed')}
-              </div>
+            <div className="space-y-6">
+              <AnalyticsGraph
+                data={charts.property_views_chart}
+                title="Property Views Trend"
+                color="#2563eb"
+              />
+              <AnalyticsGraph
+                data={charts.inquiries_chart}
+                title="Customer Inquiries Trend"
+                color="#ea580c"
+              />
+              <AnalyticsGraph
+                data={charts.customers_chart}
+                title="New Customers Trend"
+                color="#7c3aed"
+              />
               <div className="card p-6">
                 <h3 className="text-sm font-medium text-muted mb-3">
                   Most Favorited Properties

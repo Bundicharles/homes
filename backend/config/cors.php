@@ -32,7 +32,21 @@ class Cors
 
     public static function isOriginAllowed(string $origin): bool
     {
+        if (empty($origin)) {
+            return false;
+        }
         $origin = rtrim($origin, '/');
+
+        // Automatically allow same-host requests
+        $originHost = parse_url($origin, PHP_URL_HOST);
+        $serverHost = $_SERVER['HTTP_HOST'] ?? '';
+        if (str_contains($serverHost, ':')) {
+            $serverHost = explode(':', $serverHost)[0];
+        }
+        if ($originHost && $serverHost && strcasecmp($originHost, $serverHost) === 0) {
+            return true;
+        }
+
         foreach (self::$allowedOrigins as $allowed) {
             $allowed = rtrim($allowed, '/');
             if ($origin === $allowed) {

@@ -13,14 +13,14 @@ import {
   Eye,
 } from 'lucide-react';
 import { LoadingSkeleton, EmptyState, Modal } from '@/components/Modal';
-import { getRelativeTime } from '@/utils';
+import { getRelativeTime, getUploadBase } from '@/utils';
 
 const MyViewings = () => {
   const { settings } = useSettings();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedViewing, setSelectedViewing] = useState(null);
@@ -43,7 +43,7 @@ const MyViewings = () => {
     refetch: refetchViewings,
   } = useQuery({
     queryKey: ['customer-viewings'],
-    queryFn: () => viewingAPI.submit(),
+    queryFn: () => viewingAPI.getMine(),
     enabled: !!user,
     retry: false,
   });
@@ -290,7 +290,7 @@ const MyViewings = () => {
                 <img
                   src={
                     selectedViewing.property.primary_image
-                      ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${selectedViewing.property.primary_image}`
+                      ? `${getUploadBase()}uploads/properties/${selectedViewing.property.primary_image}`
                       : 'https://placehold.co/400x250?text=No+Image'
                   }
                   alt={selectedViewing.property.name}

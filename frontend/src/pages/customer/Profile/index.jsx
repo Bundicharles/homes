@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
+import { resolveAssetUrl } from '@/utils';
 
 const PasswordField = ({
   name,
@@ -54,7 +55,7 @@ const CustomerProfile = () => {
   const { user, refetchUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -158,7 +159,7 @@ const CustomerProfile = () => {
   };
 
   const profileImage =
-    user?.profile_image ||
+    resolveAssetUrl(user?.profile_image) ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(
       user?.name || 'Customer'
     )}&background=2563eb&color=fff`;

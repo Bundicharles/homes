@@ -80,11 +80,11 @@ class Config
     private function loadDefaults(): void
     {
         $this->config = [
-            'db_host' => $_ENV['DB_HOST'] ?? '127.0.0.1',
+            'db_host' => $_ENV['DB_HOST'] ?? 'localhost',
             'db_port' => $_ENV['DB_PORT'] ?? '3306',
-            'db_name' => $_ENV['DB_NAME'] ?? 'real_estate_platform',
-            'db_user' => $_ENV['DB_USER'] ?? 'root',
-            'db_pass' => $_ENV['DB_PASSWORD'] ?? '',
+            'db_name' => $_ENV['DB_NAME'] ?? 'rmwugypy_homes',
+            'db_user' => $_ENV['DB_USER'] ?? 'rmwugypy_homes',
+            'db_pass' => $_ENV['DB_PASSWORD'] ?? 'Henry@2026',
             'db_charset' => 'utf8mb4',
             'jwt_secret' => $_ENV['JWT_SECRET'] ?? 'change-this-secret-key-in-production-' . bin2hex(random_bytes(16)),
             'jwt_algorithm' => 'HS256',
@@ -93,8 +93,8 @@ class Config
             'session_lifetime' => (int)($_ENV['SESSION_LIFETIME'] ?? 1440),
             'session_secure' => filter_var($_ENV['SESSION_SECURE'] ?? 'false', FILTER_VALIDATE_BOOLEAN),
             'allowed_origins' => $_ENV['ALLOWED_ORIGINS'] ?? 'http://localhost:5173,http://localhost:3000',
-            'upload_max_size' => (int)($_ENV['UPLOAD_MAX_SIZE'] ?? 10),
-            'upload_allowed_types' => $_ENV['UPLOAD_ALLOWED_TYPES'] ?? 'jpg,jpeg,png,gif,webp,avif,pdf,doc,docx,xls,xlsx',
+            'upload_max_size' => (int)($_ENV['UPLOAD_MAX_SIZE'] ?? 10240),
+            'upload_allowed_types' => $_ENV['UPLOAD_ALLOWED_TYPES'] ?? 'jpg,jpeg,png,gif,webp,avif,svg,pdf,doc,docx,xls,xlsx,txt,mp4,webm,mov,avi,mkv,mp3,wav',
             'base_url' => $_ENV['BASE_URL'] ?? 'http://localhost/homes/backend',
             'frontend_url' => $_ENV['FRONTEND_URL'] ?? 'http://localhost:5173',
             'smtp_host' => $_ENV['SMTP_HOST'] ?? '',

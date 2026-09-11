@@ -56,8 +56,8 @@ const UserManagement = () => {
     keepPreviousData: true,
   });
 
-  const users = data?.data || data?.users || [];
-  const meta = data?.meta || {};
+  const users = data?.success ? (data.data.data || data.data) : (data?.data || data?.users || []);
+  const pagination = data?.pagination || data?.data?.pagination || {};
 
   const createMutation = useMutation({
     mutationFn: (payload) => usersAPI.create(payload),
@@ -101,7 +101,7 @@ const UserManagement = () => {
       name: user.name || '',
       email: user.email || '',
       phone: user.phone || '',
-      role: user.role || 'agent',
+      role: user.role_slug || 'agent',
       password: '',
       password_confirmation: '',
       is_active: user.is_active !== false,
@@ -210,7 +210,7 @@ const UserManagement = () => {
                   </tr>
                 )
               : users.map((user) => {
-                  const roleConfig = getRoleConfig(user.role);
+                  const roleConfig = getRoleConfig(user.role_slug);
                   return (
                     <tr key={user.id} className="hover:bg-surface-hover/50 transition-smooth">
                       <td className="px-5 py-4">
@@ -266,11 +266,11 @@ const UserManagement = () => {
       </div>
 
       {/* Pagination */}
-      {meta.last_page > 1 && (
+      {pagination.total_pages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-outline btn-sm">Previous</button>
-          <span className="text-sm text-muted">Page {page} of {meta.last_page}</span>
-          <button onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))} disabled={page === meta.last_page} className="btn btn-outline btn-sm">Next</button>
+          <span className="text-sm text-muted">Page {page} of {pagination.total_pages}</span>
+          <button onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))} disabled={page === pagination.total_pages} className="btn btn-outline btn-sm">Next</button>
         </div>
       )}
 

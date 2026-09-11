@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { propertiesAPI, favoritesAPI, interestedAPI, viewingAPI, inquiriesAPI } from '@/services/api';
@@ -7,8 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import PropertyGallery from '@/components/PropertyGallery';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import VatExcl from '@/components/VatExcl';
-import { Share2, Bed, Bath, Square, MapPin, Calendar, Ruler, CheckCircle, Send, Home, X, Loader2, Phone, Mail } from 'lucide-react';
-import { formatPrice } from '@/utils';
+import { Share2, MapPin, Calendar, CheckCircle, Send, Home, X, Loader2, Phone, Mail } from 'lucide-react';
+import { formatPrice, resolveAssetUrl, formatBytes } from '@/utils';
 import {
   getStoredFavorites,
   setStoredFavorites,
@@ -22,9 +22,26 @@ const PropertyDetails = () => {
   const { settings } = useSettings();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('description');
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [showViewingModal, setShowViewingModal] = useState(false);
+
+  // Auto-open viewing modal when navigated from a card with ?view=1
+  useEffect(() => {
+    if (searchParams.get('view') === '1') {
+      setShowViewingModal(true);
+    }
+  }, [searchParams]);
+
+  const handleCloseViewingModal = () => {
+    setShowViewingModal(false);
+    if (searchParams.get('view') === '1') {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('view');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
   const [inquiryForm, setInquiryForm] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', subject: '', message: '' });
   const [viewingForm, setViewingForm] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', preferred_date: '', preferred_time: '', message: '' });
   const [formSuccess, setFormSuccess] = useState('');
@@ -82,9 +99,8 @@ const PropertyDetails = () => {
     mutationFn: (data) => inquiriesAPI.submit(data),
     onSuccess: () => {
       setFormSuccess('inquiry');
-      setShowInquiryModal(false);
       setInquiryForm({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', subject: '', message: '' });
-      setTimeout(() => setFormSuccess(''), 5000);
+      setTimeout(() => setShowInquiryModal(false), 2000);
     },
   });
 
@@ -92,9 +108,8 @@ const PropertyDetails = () => {
     mutationFn: (data) => viewingAPI.submit(data),
     onSuccess: () => {
       setFormSuccess('viewing');
-      setShowViewingModal(false);
       setViewingForm({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', preferred_date: '', preferred_time: '', message: '' });
-      setTimeout(() => setFormSuccess(''), 5000);
+      setTimeout(() => setShowViewingModal(false), 2000);
     },
   });
 
@@ -140,12 +155,12 @@ const PropertyDetails = () => {
   };
 
   const tabs = [
+    { id: 'description', label: 'Description & Details' },
     { id: 'overview', label: 'Overview' },
-    { id: 'description', label: 'Description' },
-    { id: 'features', label: 'Features' },
+    ...(property.features && property.features.length > 0 ? [{ id: 'features', label: 'Features & Amenities' }] : []),
     { id: 'location', label: 'Location' },
-    { id: 'documents', label: 'Documents' },
-    { id: 'agent', label: 'Agent' },
+    ...(property.documents && property.documents.length > 0 ? [{ id: 'documents', label: 'Documents' }] : []),
+    ...(property.agents && property.agents.length > 0 ? [{ id: 'agent', label: 'Agent' }] : []),
   ];
 
   return (
@@ -193,41 +208,6 @@ const PropertyDetails = () => {
               {property.status}
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="flex items-center gap-2">
-                <Bed className="w-5 h-5 text-primary" />
-                <div>
-                  <span className="font-semibold">{property.bedrooms}</span>
-                  <span className="text-xs text-muted ml-1">Bedrooms</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Bath className="w-5 h-5 text-primary" />
-                <div>
-                  <span className="font-semibold">{property.bathrooms}</span>
-                  <span className="text-xs text-muted ml-1">Bathrooms</span>
-                </div>
-              </div>
-              {property.house_size && (
-                <div className="flex items-center gap-2">
-                  <Square className="w-5 h-5 text-primary" />
-                  <div>
-                    <span className="font-semibold">{parseFloat(property.house_size).toFixed(0)}</span>
-                    <span className="text-xs text-muted ml-1">m² Built</span>
-                  </div>
-                </div>
-              )}
-              {property.land_size && property.land_size > 0 && (
-                <div className="flex items-center gap-2">
-                  <Ruler className="w-5 h-5 text-primary" />
-                  <div>
-                    <span className="font-semibold">{parseFloat(property.land_size).toFixed(0)}</span>
-                    <span className="text-xs text-muted ml-1">m² Land</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="flex gap-2">
               <button
                 onClick={handleFavorite}
@@ -247,16 +227,20 @@ const PropertyDetails = () => {
           </div>
 
           <div className="card p-6">
-            <h3 className="font-semibold text-text mb-4">Property Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {property.type_name && <div><span className="text-muted">Type:</span> <span className="text-text">{property.type_name}</span></div>}
-              {property.furnishing_status && <div><span className="text-muted">Furnishing:</span> <span className="text-text">{property.furnishing_status}</span></div>}
-              {property.year_built && <div><span className="text-muted">Year Built:</span> <span className="text-text">{property.year_built}</span></div>}
-              {property.floors && <div><span className="text-muted">Floors:</span> <span className="text-text">{property.floors}</span></div>}
-              {property.parking_spaces !== undefined && <div><span className="text-muted">Parking:</span> <span className="text-text">{property.parking_spaces} spaces</span></div>}
-              {property.estate && <div className="col-span-2"><span className="text-muted">Estate:</span> <span className="text-text">{property.estate}</span></div>}
-              {property.county && <div><span className="text-muted">County:</span> <span className="text-text">{property.county}</span></div>}
-              {property.town && <div><span className="text-muted">Town:</span> <span className="text-text">{property.town}</span></div>}
+            <h3 className="font-semibold text-text mb-4">Property Summary</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between py-1.5 border-b border-border/60">
+                <span className="text-muted">Type:</span>
+                <span className="font-semibold text-text">{property.type_name || 'Property'}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-border/60">
+                <span className="text-muted">Location:</span>
+                <span className="font-semibold text-text">{property.location || property.county || 'Kenya'}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-muted">Price:</span>
+                <span className="font-bold text-primary">{formatPrice(property.price, property.currency)}</span>
+              </div>
             </div>
           </div>
 
@@ -265,7 +249,7 @@ const PropertyDetails = () => {
               <h3 className="font-semibold text-text mb-4">Assigned Agent</h3>
               <div className="flex items-center gap-4">
                 <img
-                  src={property.agents[0].photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(property.agents[0].name || 'Agent')}&background=2563eb&color=fff`}
+                  src={resolveAssetUrl(property.agents[0].photo) || `https://ui-avatars.com/api/?name=${encodeURIComponent(property.agents[0].name || 'Agent')}&background=2563eb&color=fff`}
                   alt={property.agents[0].name}
                   className="w-16 h-16 rounded-full object-cover"
                 />
@@ -310,26 +294,36 @@ const PropertyDetails = () => {
 
         <div className="py-8">
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Property Type</span><span>{property.type_name}</span></div>
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Location</span><span>{property.location}</span></div>
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">County</span><span>{property.county}</span></div>
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Price</span><span className="font-semibold">{formatPrice(property.price, property.currency)}</span></div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Bedrooms</span><span>{property.bedrooms}</span></div>
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Bathrooms</span><span>{property.bathrooms}</span></div>
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Parking</span><span>{property.parking_spaces}</span></div>
-                {property.house_size && <div className="flex justify-between py-2 border-b"><span className="text-muted">House Size</span><span>{property.house_size} m²</span></div>}
-                {property.land_size && property.land_size > 0 && <div className="flex justify-between py-2 border-b"><span className="text-muted">Land Size</span><span>{property.land_size} m²</span></div>}
-                <div className="flex justify-between py-2 border-b"><span className="text-muted">Views</span><span>{property.views_count || 0}</span></div>
+            <div className="bg-surface p-6 rounded-2xl border border-border">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-background/60 border border-border flex flex-col justify-center">
+                  <span className="text-xs text-muted font-medium uppercase tracking-wider mb-1">Property Type</span>
+                  <span className="text-base font-bold text-text">{property.type_name || 'Property'}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-background/60 border border-border flex flex-col justify-center">
+                  <span className="text-xs text-muted font-medium uppercase tracking-wider mb-1">Location</span>
+                  <span className="text-base font-bold text-text">{property.location || property.county || 'Kenya'}</span>
+                </div>
+                <div className="p-4 rounded-xl bg-background/60 border border-border flex flex-col justify-center">
+                  <span className="text-xs text-muted font-medium uppercase tracking-wider mb-1">Price</span>
+                  <span className="text-base font-bold text-primary">{formatPrice(property.price, property.currency)}</span>
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === 'description' && (
-            <div dangerouslySetInnerHTML={{ __html: property.description || '<p>No description available.</p>' }} className="prose max-w-none" />
+            <div className="bg-surface p-6 rounded-2xl border border-border">
+              {property.description ? (
+                property.description.includes('<p') || property.description.includes('<br') || property.description.includes('<div') ? (
+                  <div dangerouslySetInnerHTML={{ __html: property.description }} className="prose max-w-none text-text leading-relaxed" />
+                ) : (
+                  <p className="prose max-w-none text-text text-base leading-relaxed whitespace-pre-line">{property.description}</p>
+                )
+              ) : (
+                <p className="text-muted">No description available for this property.</p>
+              )}
+            </div>
           )}
 
           {activeTab === 'features' && (
@@ -356,7 +350,7 @@ const PropertyDetails = () => {
                     <div>
                       <h4 className="font-semibold">{doc.title}</h4>
                       <p className="text-sm text-muted">{doc.description}</p>
-                      <p className="text-xs text-muted">Type: {doc.document_type} | Size: {Math.round(doc.file_size / 1024)} KB</p>
+                      <p className="text-xs text-muted">Type: {doc.document_type} | Size: {formatBytes(doc.file_size)}</p>
                     </div>
                     <a
                       href={`${import.meta.env.VITE_API_URL || '/api'}/documents/${doc.id}`}
@@ -469,7 +463,7 @@ const PropertyDetails = () => {
           <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg border border-border">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h3 className="text-lg font-bold text-text">Request a Property Viewing</h3>
-              <button onClick={() => setShowViewingModal(false)} className="p-2 rounded-lg hover:bg-surface-hover text-muted">
+              <button onClick={handleCloseViewingModal} className="p-2 rounded-lg hover:bg-surface-hover text-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -485,8 +479,8 @@ const PropertyDetails = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text mb-1">Phone Number</label>
-                <input type="tel" value={viewingForm.phone} onChange={(e) => setViewingForm({...viewingForm, phone: e.target.value})} className="input" placeholder="+254 7XX XXX XXX" />
+                <label className="block text-sm font-medium text-text mb-1">Phone Number *</label>
+                <input type="tel" value={viewingForm.phone} onChange={(e) => setViewingForm({...viewingForm, phone: e.target.value})} className="input" required placeholder="+254 7XX XXX XXX" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

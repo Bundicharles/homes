@@ -1,3 +1,4 @@
+import { getUploadBase } from '@/utils';
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -18,7 +19,7 @@ const InterestedProperties = () => {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   useEffect(() => {
     document.title = `Interested Properties | ${businessName}`;
@@ -104,50 +105,21 @@ const InterestedProperties = () => {
               }
             />
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {interested.map((item) => {
                 const property = item.property || item;
                 return (
-                  <div
-                    key={item.id || property.id}
-                    className="card p-4 flex items-center gap-4"
-                  >
-                    <img
-                      src={
-                        property.primary_image
-                          ? `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${property.primary_image}`
-                          : 'https://placehold.co/120x90?text=No+Image'
-                      }
-                      alt={property.name}
-                      className="w-24 h-18 object-cover rounded-lg flex-shrink-0"
-                      loading="lazy"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-text line-clamp-1">{property.name}</h3>
-                      <p className="text-sm text-muted line-clamp-1">{property.location}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-primary">
-                          {property.currency || 'KES'} {Number(property.price || 0).toLocaleString()}
-                        </p>
-                        <VatExcl />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Link
-                        to={`/properties/${property.slug}`}
-                        className="btn btn-outline btn-sm"
-                      >
-                        View Property
-                      </Link>
-                      <button
-                        onClick={() => handleRemoveLoggedIn(item.id)}
-                        disabled={isLoadingRemove}
-                        className="btn btn-ghost btn-sm text-error hover:bg-error/10"
-                        aria-label={`Remove ${property.name} from interested`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div key={item.id || property.id} className="relative group">
+                    <PropertyCard property={property} />
+                    <button
+                      onClick={() => handleRemoveLoggedIn(item.id)}
+                      disabled={isLoadingRemove}
+                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 bg-error text-white p-1.5 rounded-lg hover:bg-error/90 transition-opacity z-20"
+                      aria-label={`Remove ${property.name} from interested`}
+                      title="Remove from interested"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 );
               })}

@@ -15,7 +15,7 @@ import { LoadingSkeleton, EmptyState } from '@/components/Modal';
 
 const AdminSEOSettings = () => {
   const { settings: currentSettings } = useSettings();
-  const businessName = currentSettings.business_name || 'Prime Realty Kenya';
+  const businessName = currentSettings.business_name || 'Hemaprin Homes';
   const queryClient = useQueryClient();
 
   const [saved, setSaved] = useState(false);

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 class Upload
 {
-    public static function uploadFile(array $file, string $directory, array $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']): array
+    public static function uploadFile(array $file, string $directory, ?array $allowedTypes = null): array
     {
         if (!isset($file['error']) || $file['error'] === UPLOAD_ERR_NO_FILE) {
             return ['success' => false, 'message' => 'No file uploaded'];
@@ -20,25 +20,32 @@ class Upload
             return ['success' => false, 'message' => 'File type not allowed'];
         }
 
+        if ($allowedTypes === null) {
+            $allowedTypesConfig = Config::get('upload_allowed_types', 'jpg,jpeg,png,gif,webp,avif,svg,pdf,doc,docx,xls,xlsx,txt,mp4,webm,mov,avi,mkv,mp3,wav');
+            $allowedTypes = array_map('trim', explode(',', $allowedTypesConfig));
+        }
+
         if (!in_array($extension, $allowedTypes)) {
             return ['success' => false, 'message' => 'File type not allowed'];
         }
 
-        $maxSize = Config::get('upload_max_size', 10) * 1024 * 1024;
+        $maxSizeConfig = Config::get('upload_max_size', 10240);
+        $maxSize = self::parseSizeToBytes($maxSizeConfig);
         if ($file['size'] > $maxSize) {
             return ['success' => false, 'message' => 'File size exceeds maximum allowed size'];
         }
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mimeType = $finfo->file($file['tmp_name']);
+        $mimeType = $finfo->file($file['tmp_name']) ?: 'application/octet-stream';
 
         $mimeValidationErrors = self::validateMimeType($extension, $mimeType);
         if (!empty($mimeValidationErrors)) {
             return ['success' => false, 'message' => $mimeValidationErrors[0]];
         }
 
-        if (str_contains($directory, 'images') || str_contains($directory, 'properties') || str_contains($directory, 'branding') || str_contains($directory, 'media')) {
-            $imageCheck = getimagesize($file['tmp_name']);
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'];
+        if (in_array($extension, $imageExtensions) && (str_contains($directory, 'images') || str_contains($directory, 'properties') || str_contains($directory, 'branding'))) {
+            $imageCheck = @getimagesize($file['tmp_name']);
             if ($imageCheck === false && in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
                 return ['success' => false, 'message' => 'Invalid image file'];
             }
@@ -60,7 +67,7 @@ class Upload
         $fileSize = filesize($filePath);
         $dimensions = null;
         if (str_contains($mimeType, 'image')) {
-            $imageInfo = getimagesize($filePath);
+            $imageInfo = @getimagesize($filePath);
             if ($imageInfo) {
                 $dimensions = $imageInfo[0] . 'x' . $imageInfo[1];
             }
@@ -90,11 +97,16 @@ class Upload
         }
 
         $result['file_size'] = filesize($result['full_path']);
-        $imageInfo = getimagesize($result['full_path']);
+        $imageInfo = @getimagesize($result['full_path']);
         $result['width'] = $imageInfo[0] ?? null;
         $result['height'] = $imageInfo[1] ?? null;
 
         return $result;
+    }
+
+    public static function uploadImage(array $file, string $directory = 'agents'): array
+    {
+        return self::uploadFile($file, $directory, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']);
     }
 
     public static function uploadDocument(array $file): array
@@ -105,12 +117,13 @@ class Upload
 
     public static function uploadMedia(array $file): array
     {
-        return self::uploadFile($file, 'media', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif']);
+        $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'mp4', 'webm', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'pdf'];
+        return self::uploadFile($file, 'media', $allowedTypes);
     }
 
     public static function uploadBranding(array $file): array
     {
-        return self::uploadFile($file, 'branding', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'ico']);
+        return self::uploadFile($file, 'branding', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico']);
     }
 
     public static function deleteFile(string $relativePath): bool
@@ -234,21 +247,53 @@ class Upload
         };
     }
 
+    public static function parseSizeToBytes(int|string $size): int
+    {
+        if (is_numeric($size)) {
+            // If configured as an integer, it is in Megabytes (e.g. 10240 for 10GB)
+            return (int)$size * 1024 * 1024;
+        }
+
+        $size = trim((string)$size);
+        $upper = strtoupper($size);
+        $val = (float)$size;
+
+        if (str_ends_with($upper, 'GB') || str_ends_with($upper, 'G')) {
+            return (int)($val * 1024 * 1024 * 1024);
+        }
+        if (str_ends_with($upper, 'MB') || str_ends_with($upper, 'M')) {
+            return (int)($val * 1024 * 1024);
+        }
+        if (str_ends_with($upper, 'KB') || str_ends_with($upper, 'K')) {
+            return (int)($val * 1024);
+        }
+        return (int)$val;
+    }
+
     private static function validateMimeType(string $extension, string $mimeType): array
     {
         $allowedMimes = [
-            'jpg' => ['image/jpeg'],
-            'jpeg' => ['image/jpeg'],
-            'png' => ['image/png'],
+            'jpg' => ['image/jpeg', 'image/pjpeg'],
+            'jpeg' => ['image/jpeg', 'image/pjpeg'],
+            'png' => ['image/png', 'image/x-png'],
             'gif' => ['image/gif'],
             'webp' => ['image/webp'],
             'avif' => ['image/avif'],
+            'svg' => ['image/svg+xml', 'text/plain', 'text/xml'],
+            'ico' => ['image/x-icon', 'image/vnd.microsoft.icon'],
             'pdf' => ['application/pdf'],
             'doc' => ['application/msword'],
             'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
             'xls' => ['application/vnd.ms-excel'],
             'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
             'txt' => ['text/plain'],
+            'mp4' => ['video/mp4', 'application/mp4'],
+            'webm' => ['video/webm', 'audio/webm'],
+            'mov' => ['video/quicktime'],
+            'avi' => ['video/x-msvideo', 'video/avi', 'video/msvideo'],
+            'mkv' => ['video/x-matroska', 'video/mkv'],
+            'mp3' => ['audio/mpeg', 'audio/mp3', 'audio/mpg'],
+            'wav' => ['audio/wav', 'audio/x-wav', 'audio/wave'],
         ];
 
         if (isset($allowedMimes[$extension]) && !in_array($mimeType, $allowedMimes[$extension])) {

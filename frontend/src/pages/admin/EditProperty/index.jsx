@@ -1,12 +1,11 @@
+import { getUploadBase, resolveAssetUrl } from '@/utils';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building,
   MapPin,
-  FileText,
   DollarSign,
-  CheckCircle,
   Image as ImageIcon,
   User,
   Globe,
@@ -20,7 +19,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import { adminPropertiesAPI, propertyTypesAPI, featuresAPI, agentsAPI, mediaAPI } from '@/services/api';
+import { adminPropertiesAPI, propertyTypesAPI, agentsAPI, mediaAPI } from '@/services/api';
 import { useSettings } from '@/context/SettingsContext';
 import { LoadingSkeleton } from '@/components/Modal';
 
@@ -36,7 +35,7 @@ const EditProperty = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { settings } = useSettings();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [activeTab, setActiveTab] = useState('basic');
   const [formError, setFormError] = useState('');
@@ -84,15 +83,10 @@ const EditProperty = () => {
     enabled: !!id,
   });
 
-  // Fetch Types, Features, Agents
+  // Fetch Types and Agents
   const { data: typesData } = useQuery({
     queryKey: ['property-types'],
     queryFn: () => propertyTypesAPI.getAll(),
-  });
-
-  const { data: featuresData } = useQuery({
-    queryKey: ['features'],
-    queryFn: () => featuresAPI.getAll(),
   });
 
   const { data: agentsData } = useQuery({
@@ -101,7 +95,6 @@ const EditProperty = () => {
   });
 
   const propertyTypes = typesData?.success ? typesData.data : [];
-  const allFeatures = featuresData?.success ? featuresData.data : [];
   const agents = agentsData?.success ? (agentsData.data.data || agentsData.data) : [];
 
   // Populate form with fetched data
@@ -154,16 +147,6 @@ const EditProperty = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
-  };
-
-  const handleFeatureToggle = (featureId) => {
-    setFormData((prev) => {
-      const exists = prev.features.includes(featureId);
-      const newFeatures = exists
-        ? prev.features.filter((fId) => fId !== featureId)
-        : [...prev.features, featureId];
-      return { ...prev, features: newFeatures };
-    });
   };
 
   // Image Upload
@@ -229,6 +212,11 @@ const EditProperty = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin.property', id] });
       queryClient.invalidateQueries({ queryKey: ['admin.properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin.plots'] });
+      queryClient.invalidateQueries({ queryKey: ['admin.dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      queryClient.invalidateQueries({ queryKey: ['properties.plots'] });
+      queryClient.invalidateQueries({ queryKey: ['properties.plots.home'] });
       navigate('/admin/properties');
     },
     onError: (err) => {
@@ -290,18 +278,9 @@ const EditProperty = () => {
     );
   }
 
-  const featuresByCategory = allFeatures.reduce((acc, feat) => {
-    const cat = feat.category || 'General';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(feat);
-    return acc;
-  }, {});
-
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Building },
     { id: 'location', label: 'Location', icon: MapPin },
-    { id: 'specs', label: 'Specifications', icon: FileText },
-    { id: 'features', label: 'Features & Amenities', icon: CheckCircle },
     { id: 'media', label: 'Images & Media', icon: ImageIcon },
     { id: 'seo', label: 'SEO & Agent', icon: Globe },
   ];
@@ -502,21 +481,30 @@ const EditProperty = () => {
                   className="input inline-block w-auto py-1 px-3"
                 >
                   <option value="Pending">Pending Review</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Documents Submitted">Documents Submitted</option>
                   <option value="Verified">Verified Listing</option>
-                  <option value="Rejected">Rejected</option>
+                  <option value="Verification Required">Verification Required</option>
+                  <option value="Not Verified">Not Verified</option>
                 </select>
               </div>
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-text mb-1">Description</label>
+              <label className="block text-sm font-medium text-text mb-1">
+                Property Description & Specifications
+              </label>
               <textarea
                 name="description"
-                rows={6}
+                rows={10}
                 value={formData.description}
                 onChange={handleChange}
+                placeholder="Write full property details, specifications (bedrooms, bathrooms, parking, house/land size, year built), key features, amenities, neighborhood highlights, and custom descriptions here in free-form text..."
                 className="input"
               />
+              <p className="text-xs text-muted mt-1">
+                Add any specifications, features, amenities, and descriptive paragraphs as free text.
+              </p>
             </div>
           </div>
         )}
@@ -620,149 +608,7 @@ const EditProperty = () => {
           </div>
         )}
 
-        {/* TAB 3: SPECS */}
-        {activeTab === 'specs' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-surface p-6 rounded-2xl border border-border">
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Bedrooms</label>
-              <input
-                type="number"
-                name="bedrooms"
-                value={formData.bedrooms}
-                onChange={handleChange}
-                className="input"
-                min="0"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Bathrooms</label>
-              <input
-                type="number"
-                name="bathrooms"
-                value={formData.bathrooms}
-                onChange={handleChange}
-                className="input"
-                min="0"
-                step="0.5"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Parking Spaces</label>
-              <input
-                type="number"
-                name="parking_spaces"
-                value={formData.parking_spaces}
-                onChange={handleChange}
-                className="input"
-                min="0"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">House Size (m²)</label>
-              <input
-                type="number"
-                name="house_size"
-                value={formData.house_size}
-                onChange={handleChange}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Land Size (m² / Acres)</label>
-              <input
-                type="number"
-                name="land_size"
-                value={formData.land_size}
-                onChange={handleChange}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Floors / Storeys</label>
-              <input
-                type="number"
-                name="floors"
-                value={formData.floors}
-                onChange={handleChange}
-                className="input"
-                min="1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Year Built</label>
-              <input
-                type="number"
-                name="year_built"
-                value={formData.year_built}
-                onChange={handleChange}
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">Furnishing Status</label>
-              <select
-                name="furnishing_status"
-                value={formData.furnishing_status}
-                onChange={handleChange}
-                className="input"
-              >
-                <option value="Unfurnished">Unfurnished</option>
-                <option value="Semi-Furnished">Semi-Furnished</option>
-                <option value="Fully Furnished">Fully Furnished</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: FEATURES */}
-        {activeTab === 'features' && (
-          <div className="bg-surface p-6 rounded-2xl border border-border space-y-6">
-            <div>
-              <h3 className="text-base font-semibold text-text">Select Features & Amenities</h3>
-              <p className="text-sm text-muted">Check all features that apply</p>
-            </div>
-
-            {Object.entries(featuresByCategory).map(([category, features]) => (
-              <div key={category} className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted border-b border-border pb-1">
-                  {category}
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {features.map((feat) => {
-                    const isChecked = formData.features.includes(feat.id);
-                    return (
-                      <label
-                        key={feat.id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border transition-smooth cursor-pointer ${
-                          isChecked
-                            ? 'bg-primary/10 border-primary text-primary font-medium'
-                            : 'bg-background border-border text-text hover:bg-surface-hover'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleFeatureToggle(feat.id)}
-                          className="checkbox"
-                        />
-                        <span className="text-sm">{feat.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* TAB 5: MEDIA */}
+        {/* TAB 3: MEDIA */}
         {activeTab === 'media' && (
           <div className="bg-surface p-6 rounded-2xl border border-border space-y-6">
             <div>
@@ -793,48 +639,54 @@ const EditProperty = () => {
                   )}
                 </div>
                 <span className="text-sm font-semibold text-text">
-                  {uploadingImage ? 'Uploading Photos...' : 'Click to Upload Additional Photos'}
+                  {uploadingImage ? 'Uploading Photos...' : 'Click to Upload Photos'}
                 </span>
-                <span className="text-xs text-muted">PNG, JPG, WEBP up to 10MB</span>
+                <span className="text-xs text-muted">PNG, JPG, WEBP, AVIF up to 10GB each</span>
               </label>
             </div>
 
-            {/* Gallery Previews */}
-            {formData.images.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pt-4">
+            {/* Gallery Grid */}
+            {formData.images.length === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No photos uploaded for this listing yet.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {formData.images.map((img, index) => (
                   <div
                     key={index}
-                    className="relative group rounded-xl overflow-hidden border border-border aspect-[4/3] bg-background"
+                    className={`relative rounded-xl overflow-hidden group border-2 transition-all ${
+                      img.is_primary ? 'border-primary shadow-md' : 'border-border'
+                    }`}
                   >
                     <img
-                      src={img.url || `${import.meta.env.VITE_UPLOAD_BASE || '/'}uploads/properties/${img.filename}`}
-                      alt={img.alt_text || 'Property image'}
-                      className="w-full h-full object-cover"
+                      src={resolveAssetUrl(img.url || img.file_path, `${getUploadBase()}uploads/properties/${img.filename}`)}
+                      alt={img.alt_text || 'Property preview'}
+                      className="w-full h-32 object-cover"
                     />
 
+                    {/* Badge */}
                     {img.is_primary && (
-                      <span className="absolute top-2 left-2 px-2 py-1 rounded bg-primary text-white text-xs font-semibold shadow">
-                        Primary Cover
+                      <span className="absolute top-2 left-2 bg-primary text-white text-xs font-semibold px-2 py-0.5 rounded shadow">
+                        Primary
                       </span>
                     )}
 
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPrimaryImage(index)}
-                        title="Set as Primary"
-                        className={`p-2 rounded-lg ${
-                          img.is_primary ? 'bg-primary text-white' : 'bg-white/80 hover:bg-white text-text'
-                        }`}
-                      >
-                        <Star className="w-4 h-4 fill-current" />
-                      </button>
+                    {/* Actions Overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-smooth flex items-center justify-center gap-2">
+                      {!img.is_primary && (
+                        <button
+                          type="button"
+                          onClick={() => setPrimaryImage(index)}
+                          className="p-1.5 rounded-lg bg-white/20 hover:bg-white/40 text-white backdrop-blur transition-colors"
+                          title="Set as Primary"
+                        >
+                          <Star className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
-                        title="Remove Photo"
-                        className="p-2 rounded-lg bg-error text-white hover:bg-error/80"
+                        className="p-1.5 rounded-lg bg-error/80 hover:bg-error text-white transition-colors"
+                        title="Delete photo"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -846,7 +698,7 @@ const EditProperty = () => {
           </div>
         )}
 
-        {/* TAB 6: SEO & AGENT */}
+        {/* TAB 4: SEO & AGENT */}
         {activeTab === 'seo' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface p-6 rounded-2xl border border-border">
             <div className="md:col-span-2">

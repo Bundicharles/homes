@@ -30,7 +30,7 @@ const STATUS_OPTIONS = ['Pending', 'Confirmed', 'Rescheduled', 'Completed', 'Can
 const ViewingRequests = () => {
   const { settings } = useSettings();
   const queryClient = useQueryClient();
-  const businessName = settings.business_name || 'Prime Realty Kenya';
+  const businessName = settings.business_name || 'Hemaprin Homes';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -94,7 +94,7 @@ const ViewingRequests = () => {
   });
 
   const viewings = data?.success ? (data.data.data || data.data) : [];
-  const total = data?.success ? (data.data.total || 0) : 0;
+  const total = data?.success ? (data.data.total ?? data.data.pagination?.total ?? 0) : 0;
   const totalPages = Math.ceil(total / limit);
 
   const handleOpenDetail = (viewing) => {
